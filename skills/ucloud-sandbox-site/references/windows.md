@@ -43,7 +43,7 @@ ucloud-sandbox-cli version
 if ($LASTEXITCODE -ne 0) { throw "ucloud-sandbox-cli verification failed." }
 ```
 
-安装脚本默认安装到 `%LOCALAPPDATA%\Programs\ucloud-sandbox-cli`，并更新当前进程和用户 `PATH`。不要自动更新已经可正常运行的 CLI。
+安装脚本默认安装到 `%LOCALAPPDATA%\Programs\ucloud-sandbox-cli`，并更新当前进程和用户 `PATH`；不要自动更新已经可正常运行的 CLI。如果上述 PowerShell 安装流程失败，保留原始错误并主动查找其他可行安装方式，例如从官方 Release 手动下载与当前架构匹配的 ZIP；先向用户说明方案来源、操作、安装位置和风险，仅在用户明确同意后执行。替代方案只使用 `ucloud/ucloud-sandbox-cli` 官方仓库或官方 Release，并保持 TLS、证书和证书吊销校验；不要关闭安全校验、绕过系统安全策略或改用未经用户确认的第三方来源。若失败源于代理、证书或管理员权限，让用户在真实终端或由管理员处理。完成后确认 `Get-Command ucloud-sandbox-cli -CommandType Application` 和 `ucloud-sandbox-cli version` 均成功，且用户 `PATH` 已包含安装目录；否则不要继续连接站点。
 
 ## 设置站点凭证并验证连接
 
