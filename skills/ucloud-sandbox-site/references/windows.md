@@ -35,7 +35,7 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
 
 if (-not (Get-Command ucloud-sandbox-cli -CommandType Application -ErrorAction SilentlyContinue)) {
   [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-  $InstallerUrl = "https://raw.githubusercontent.com/Piwriw/ucloud-sandbox-cli/feat/windows/install.ps1"
+  $InstallerUrl = "https://raw.githubusercontent.com/ucloud/ucloud-sandbox-cli/main/install.ps1"
   & ([scriptblock]::Create((Invoke-RestMethod -Uri $InstallerUrl -UseBasicParsing -ErrorAction Stop)))
 }
 
