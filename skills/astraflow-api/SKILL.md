@@ -85,23 +85,20 @@ export ASTRAFLOW_PROJECT_ID="<project-id>"
 - 浮点数不能用科学计数法表示。
 - 数组类型参数（例如 `ModelNames.N`）按其展开后的实际键名参与排序和拼接，比如 `ModelNames.0`、`ModelNames.1`。
 
-示例（来自官方文档，用于校验实现是否正确）：
+安全示例（只使用占位符和环境变量，不在文档中写入任何可用密钥）：
 
-- `PublicKey`: `ucloudsomeone@example.com1296235120854146120`
-- `PrivateKey`: `46f09bb9fab4f12dfc160dae12273d5332b5debe`
-- 请求参数：`Action=DescribeUHostInstance`、`Region=cn-bj2`、`Limit=10`
-- 拼接后的待签名字符串：
+- `PublicKey`：从 `ASTRAFLOW_PUBLIC_KEY` 读取。
+- `PrivateKey`：只从 `ASTRAFLOW_PRIVATE_KEY` 读取，不写入命令字面量、日志或仓库文件。
+- 请求参数：`Action=DescribeUHostInstance`、`Region=cn-bj2`、`Limit=10`。
 
-```
-ActionDescribeUHostInstanceLimit10PublicKeyucloudsomeone@example.com1296235120854146120Regioncn-bj246f09bb9fab4f12dfc160dae12273d5332b5debe
-```
-
-- 对上面字符串做SHA1，得到 `Signature`：`cba5cf5ec4d4233d206b1b54951e3787350a642f`
-
-用shell快速验证的写法（仅用于本地校验签名算法实现，实际调用时按参数升序拼接对应接口的真实参数）：
+用 shell 在本地计算签名，并将结果保存到环境变量（执行前确认未开启 `set -x`）：
 
 ```bash
-printf '%s' 'ActionDescribeUHostInstanceLimit10PublicKeyucloudsomeone@example.com1296235120854146120Regioncn-bj246f09bb9fab4f12dfc160dae12273d5332b5debe' | sha1sum
+ASTRAFLOW_SIGNATURE="$(
+  printf '%s' "ActionDescribeUHostInstanceLimit10PublicKey${ASTRAFLOW_PUBLIC_KEY}Regioncn-bj2${ASTRAFLOW_PRIVATE_KEY}" |
+    sha1sum |
+    awk '{print $1}'
+)"
 ```
 
 计算出Signature后，把它作为一个普通参数加进最终请求里，和其余参数一起发送。
@@ -115,9 +112,9 @@ curl -X POST \
   -d '{
       "Action"     : "DescribeUHostInstance",
       "Limit"      : 10,
-      "PublicKey"  : "ucloudsomeone@example.com1296235120854146120",
+      "PublicKey"  : "<value-from-ASTRAFLOW_PUBLIC_KEY>",
       "Region"     : "cn-bj2",
-      "Signature"  : "cba5cf5ec4d4233d206b1b54951e3787350a642f"
+      "Signature"  : "<value-from-ASTRAFLOW_SIGNATURE>"
   }'
 ```
 
