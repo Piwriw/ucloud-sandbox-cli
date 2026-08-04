@@ -28,6 +28,10 @@ github.com/ucloud/ucloud-sandbox-sdk-go v0.0.0-20260626103758-60b4523c8358 h1:q9
 github.com/ucloud/ucloud-sandbox-sdk-go v0.0.0-20260626103758-60b4523c8358/go.mod h1:097WABFNud50hH2KImyZ8WOJeb0lM2A4+gLvQ1kllsc=
 github.com/ucloud/ucloud-sandbox-sdk-go v0.0.0-20260724023741-905601aa3144 h1:PHVW7cDYIAfl1vv/6qKbvzs52HvhlSW5j1h4DuJO2uc=
 github.com/ucloud/ucloud-sandbox-sdk-go v0.0.0-20260724023741-905601aa3144/go.mod h1:097WABFNud50hH2KImyZ8WOJeb0lM2A4+gLvQ1kllsc=
+github.com/ucloud/ucloud-sandbox-sdk-go v0.0.0-20260803102739-bc8a7a31fc6a h1:NAPrfCttc0J30dMXBYd71oqpB0+Z1hJi7o/JbqZc1u0=
+github.com/ucloud/ucloud-sandbox-sdk-go v0.0.0-20260803102739-bc8a7a31fc6a/go.mod h1:097WABFNud50hH2KImyZ8WOJeb0lM2A4+gLvQ1kllsc=
+github.com/ucloud/ucloud-sandbox-sdk-go v0.0.0-20260804080039-35258adf309e h1:HUxJzyqzi7HfasPmtGB6894+7a60i7kJCzzxFzMr6fk=
+github.com/ucloud/ucloud-sandbox-sdk-go v0.0.0-20260804080039-35258adf309e/go.mod h1:097WABFNud50hH2KImyZ8WOJeb0lM2A4+gLvQ1kllsc=
 go.yaml.in/yaml/v3 v3.0.4/go.mod h1:DhzuOOF2ATzADvBadXxruRBLzYTpT36CKvDb3+aBEFg=
 golang.org/x/sys v0.0.0-20181122145206-62eef0e2fa9b/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.46.0 h1:noSf2Fq6F8DBgS+LysIkx7rIExoNHJsxOAtPp4rthXw=
