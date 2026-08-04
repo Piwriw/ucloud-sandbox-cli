@@ -56,34 +56,69 @@ fi
 
 ```bash
 npm uninstall -g @ucloud-sdks/ucloud-sandbox-cli
-curl -sS https://raw.githubusercontent.com/ucloud/ucloud-sandbox-cli/main/install.sh | sh -s -- -y
-ucloud-sandbox-cli version
 ```
 
 如果全局 npm 卸载需要管理员权限或交互确认，让用户在真实终端执行卸载命令，不要绕过权限限制。
 
-如果输出 `NOT_INSTALLED`，使用官方安装脚本安装。Agent、CI 等自动化环境使用非交互模式：
+如果已卸载旧版或输出 `NOT_INSTALLED`，直接下载官方 GitHub 最新 Release 中与当前系统和架构匹配的二进制压缩包。不要下载或执行远程安装脚本，也不要把用户输入或命令输出作为下载 URL。Agent、CI 等自动化环境使用以下非交互流程：
 
 ```bash
-curl -sS https://raw.githubusercontent.com/ucloud/ucloud-sandbox-cli/main/install.sh | sh -s -- -y
+set -eu
+
+BINARY_NAME='ucloud-sandbox-cli'
+INSTALL_DIR="$HOME/.local/bin"
+
+case "$(uname -s)" in
+  Linux) RELEASE_OS='linux' ;;
+  Darwin) RELEASE_OS='darwin' ;;
+  *) echo "不支持的操作系统；仅支持 Linux 和 macOS" >&2; exit 1 ;;
+esac
+
+case "$(uname -m | tr '[:upper:]' '[:lower:]')" in
+  x86_64|amd64) RELEASE_ARCH='amd64' ;;
+  arm64|aarch64) RELEASE_ARCH='arm64' ;;
+  *) echo "不支持的 CPU 架构；仅支持 amd64 和 arm64" >&2; exit 1 ;;
+esac
+
+command -v curl >/dev/null 2>&1 || { echo "缺少 curl，停止安装" >&2; exit 1; }
+command -v tar >/dev/null 2>&1 || { echo "缺少 tar，停止安装" >&2; exit 1; }
+command -v install >/dev/null 2>&1 || { echo "缺少 install，停止安装" >&2; exit 1; }
+
+ASSET_NAME="${BINARY_NAME}_${RELEASE_OS}_${RELEASE_ARCH}.tar.gz"
+RELEASE_URL="https://github.com/ucloud/ucloud-sandbox-cli/releases/latest/download/${ASSET_NAME}"
+TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ucloud-sandbox-cli-install.XXXXXX")"
+ARCHIVE_FILE="$TEMP_DIR/$ASSET_NAME"
+STAGED_BINARY="$TEMP_DIR/$BINARY_NAME"
+
+cleanup_release() {
+  rm -f "$ARCHIVE_FILE" "$STAGED_BINARY"
+  rmdir "$TEMP_DIR" 2>/dev/null || true
+}
+trap cleanup_release EXIT
+trap 'exit 1' HUP INT TERM
+
+curl --fail --silent --show-error --location \
+  --proto '=https' --tlsv1.2 \
+  --output "$ARCHIVE_FILE" "$RELEASE_URL"
+
+if [ "$(tar -tzf "$ARCHIVE_FILE")" != "$BINARY_NAME" ]; then
+  echo "Release 压缩包内容不符合预期，停止安装" >&2
+  exit 1
+fi
+
+if ! tar -xOzf "$ARCHIVE_FILE" "$BINARY_NAME" >"$STAGED_BINARY" || [ ! -s "$STAGED_BINARY" ]; then
+  echo "无法从 Release 压缩包提取 CLI，停止安装" >&2
+  exit 1
+fi
+
+chmod 0755 "$STAGED_BINARY"
+mkdir -p "$INSTALL_DIR"
+install -m 0755 "$STAGED_BINARY" "$INSTALL_DIR/$BINARY_NAME"
+export PATH="$INSTALL_DIR:$PATH"
 ucloud-sandbox-cli version
 ```
 
-需要让用户在真实终端交互安装时，也可以使用：
-
-```bash
-curl -sS https://raw.githubusercontent.com/ucloud/ucloud-sandbox-cli/main/install.sh | sh
-```
-
-若默认安装目录不可写，安装到用户目录并把它加入当前 shell 的 `PATH`：
-
-```bash
-curl -sS https://raw.githubusercontent.com/ucloud/ucloud-sandbox-cli/main/install.sh | sh -s -- -y -p "$HOME/.local/bin"
-export PATH="$HOME/.local/bin:$PATH"
-ucloud-sandbox-cli version
-```
-
-安装后必须以 `ucloud-sandbox-cli version` 成功作为 CLI 验证标准。安装脚本成功但命令仍不存在时，定位实际安装目录并加入 `PATH`；不要在尚未验证 CLI 时继续站点认证或部署。
+安装后必须以 `ucloud-sandbox-cli version` 成功作为 CLI 验证标准。安装成功但命令仍不存在时，定位实际安装目录并加入 `PATH`；不要在尚未验证 CLI 时继续站点认证或部署。
 
 本节只安装和验证 `ucloud-sandbox-cli`。不要自动更新已经可正常运行的 CLI，也不要在本技能中安装或更新 `ucloud-sandbox-site` skill 本身。
 

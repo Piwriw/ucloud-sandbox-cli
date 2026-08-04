@@ -22,9 +22,16 @@
 
 ## 检查并安装 CLI
 
-检查并卸载旧 npm 版；仅在命令不存在时调用独立 `install.ps1`。卸载需要管理员权限时，让用户在真实终端处理：
+检查并卸载旧 npm 版；仅在命令不存在时直接下载官方 GitHub 最新 Release 中与当前架构匹配的 ZIP。不要下载或执行远程安装脚本，也不要动态执行下载响应文本。卸载需要管理员权限时，让用户在真实终端处理：
 
 ```powershell
+if (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+  $KnownInstallDir = Join-Path $env:LOCALAPPDATA "Programs\ucloud-sandbox-cli"
+  if (Test-Path -LiteralPath (Join-Path $KnownInstallDir "ucloud-sandbox-cli.exe") -PathType Leaf) {
+    $env:Path = "$KnownInstallDir;$env:Path"
+  }
+}
+
 if (Get-Command npm -ErrorAction SilentlyContinue) {
   npm list -g "@ucloud-sdks/ucloud-sandbox-cli" --depth=0 *> $null
   if ($LASTEXITCODE -eq 0) {
@@ -35,22 +42,89 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
 
 if (-not (Get-Command ucloud-sandbox-cli -CommandType Application -ErrorAction SilentlyContinue)) {
   [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-  $InstallerUrl = "https://raw.githubusercontent.com/ucloud/ucloud-sandbox-cli/main/install.ps1"
-  & ([scriptblock]::Create((Invoke-RestMethod -Uri $InstallerUrl -UseBasicParsing -ErrorAction Stop)))
+  $BinaryName = "ucloud-sandbox-cli"
+  $ProcessorArchitecture = if ([string]::IsNullOrWhiteSpace($env:PROCESSOR_ARCHITEW6432)) {
+    $env:PROCESSOR_ARCHITECTURE
+  } else {
+    $env:PROCESSOR_ARCHITEW6432
+  }
+  if ([string]::IsNullOrWhiteSpace($ProcessorArchitecture)) {
+    throw "Unable to determine the Windows architecture."
+  }
+  $ReleaseArchitecture = switch ($ProcessorArchitecture.ToUpperInvariant()) {
+    "AMD64" { "amd64" }
+    "ARM64" { "arm64" }
+    default { throw "Unsupported Windows architecture: $ProcessorArchitecture" }
+  }
+
+  $AssetName = "${BinaryName}_windows_${ReleaseArchitecture}.zip"
+  $ReleaseUrl = "https://github.com/ucloud/ucloud-sandbox-cli/releases/latest/download/$AssetName"
+  if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+    throw "LOCALAPPDATA is not set."
+  }
+  $InstallDir = Join-Path $env:LOCALAPPDATA "Programs\ucloud-sandbox-cli"
+  $TargetBinary = Join-Path $InstallDir "$BinaryName.exe"
+  $TempDir = Join-Path ([IO.Path]::GetTempPath()) "$BinaryName-install-$([Guid]::NewGuid().ToString('N'))"
+  $ArchivePath = Join-Path $TempDir $AssetName
+  $StagedBinary = Join-Path $TempDir "$BinaryName.exe"
+  $Archive = $null
+
+  try {
+    New-Item -ItemType Directory -Force -Path $TempDir, $InstallDir -ErrorAction Stop | Out-Null
+    Invoke-WebRequest -Uri $ReleaseUrl -OutFile $ArchivePath -UseBasicParsing -ErrorAction Stop
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $Archive = [IO.Compression.ZipFile]::OpenRead($ArchivePath)
+    try {
+      $ExpectedEntry = "$BinaryName.exe"
+      $Entries = @($Archive.Entries)
+      if ($Entries.Count -ne 1 -or $Entries[0].FullName -cne $ExpectedEntry -or $Entries[0].Length -le 0) {
+        throw "Release archive content was not the expected $ExpectedEntry."
+      }
+
+      $SourceStream = $null
+      $TargetStream = $null
+      try {
+        $SourceStream = $Entries[0].Open()
+        $TargetStream = [IO.File]::Open($StagedBinary, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
+        $SourceStream.CopyTo($TargetStream)
+      } finally {
+        if ($null -ne $TargetStream) { $TargetStream.Dispose() }
+        if ($null -ne $SourceStream) { $SourceStream.Dispose() }
+      }
+    } finally {
+      if ($null -ne $Archive) { $Archive.Dispose() }
+    }
+
+    Copy-Item -LiteralPath $StagedBinary -Destination $TargetBinary -Force -ErrorAction Stop
+    Unblock-File -LiteralPath $TargetBinary -ErrorAction SilentlyContinue
+
+    $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    $UserPathEntries = @($UserPath -split ";" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if (-not ($UserPathEntries | Where-Object { $_.Trim().TrimEnd("\") -ieq $InstallDir.TrimEnd("\") })) {
+      $NewUserPath = if ([string]::IsNullOrWhiteSpace($UserPath)) { $InstallDir } else { "$InstallDir;$UserPath" }
+      [Environment]::SetEnvironmentVariable("Path", $NewUserPath, "User")
+    }
+    $env:Path = "$InstallDir;$env:Path"
+  } finally {
+    Remove-Item -LiteralPath $TempDir -Recurse -Force -ErrorAction SilentlyContinue
+  }
 }
 
 ucloud-sandbox-cli version
 if ($LASTEXITCODE -ne 0) { throw "ucloud-sandbox-cli verification failed." }
 ```
 
-安装脚本默认安装到 `%LOCALAPPDATA%\Programs\ucloud-sandbox-cli`，并更新当前进程和用户 `PATH`；不要自动更新已经可正常运行的 CLI。
-如果上述 PowerShell 安装流程失败，保留原始错误并主动查找其他可行安装方式，例如从官方 Release 手动下载与当前架构匹配的 ZIP；先向用户说明方案来源、操作、安装位置和风险，仅在用户明确同意后执行。替代方案只使用 `ucloud/ucloud-sandbox-cli` 官方仓库或官方 Release，并保持 TLS、证书和证书吊销校验；不要关闭安全校验、绕过系统安全策略或改用未经用户确认的第三方来源。若失败源于代理、证书或管理员权限，让用户在真实终端或由管理员处理。完成后确认 `ucloud-sandbox-cli version` 成功，且用户 `PATH` 已包含安装目录；否则不要继续连接站点。
+该流程默认安装到 `%LOCALAPPDATA%\Programs\ucloud-sandbox-cli`，并更新当前进程和用户 `PATH`；不要自动更新已经可正常运行的 CLI。
+如果上述 PowerShell 安装流程失败，保留原始错误并主动查找其他可行安装方式；先向用户说明方案来源、操作、安装位置和风险，仅在用户明确同意后执行。替代方案只使用 `ucloud/ucloud-sandbox-cli` 官方仓库或官方 Release，并保持 TLS、证书和证书吊销校验；不要关闭系统安全策略或改用未经用户确认的第三方来源。若失败源于代理、证书或管理员权限，让用户在真实终端或由管理员处理。完成后确认 `ucloud-sandbox-cli version` 成功，且用户 `PATH` 已包含安装目录；否则不要继续连接站点。
 
 ## 设置站点凭证并验证连接
 
 只在当前 PowerShell 进程中设置完整站点 ID，并派生去掉 `site_` 前缀的沙箱 ID：
 
 ```powershell
+$KnownInstallDir = Join-Path $env:LOCALAPPDATA "Programs\ucloud-sandbox-cli"
+$env:Path = "$KnownInstallDir;$env:Path"
 $SiteId = "site_<sandbox-id>"
 
 if (-not $SiteId.StartsWith("site_", [StringComparison]::Ordinal) -or $SiteId.Length -le 5) {
