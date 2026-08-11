@@ -1,11 +1,11 @@
 ---
 name: ucloud-sandbox
-description: 当用户需要在 Linux、macOS 或 Windows 中用 UCloud Sandbox CLI 操作沙箱服务时使用，包括安装或配置 ucloud-sandbox-cli、设置 API Key 和地域、创建/连接/执行/暂停/终止沙箱、浏览和管理沙箱文件、上传或下载文件、查看端口地址和监控指标、管理快照与模板，以及在 Claude Code、Codex、Gemini 等 Agent 中安装本技能。
+description: 当用户需要在 Linux、macOS 或 Windows 中用 UCloud Sandbox CLI 操作沙箱服务时使用，包括安装或配置 ucloud-sandbox-cli、设置 API Key 和地域、创建/连接/执行/暂停/终止沙箱、管理持久化 Volume、创建沙箱时挂载 Volume、浏览和管理沙箱文件、上传或下载文件、查看端口地址和监控指标、管理快照与模板，以及在 Claude Code、Codex、Gemini 等 Agent 中安装本技能。
 ---
 
 # UCloud Sandbox CLI
 
-使用 `ucloud-sandbox-cli` 管理 UCloud Sandbox 沙箱、快照和模板。优先用 CLI 完成操作；如果用户只是在询问命令，给出可复制的命令即可。
+使用 `ucloud-sandbox-cli` 管理 UCloud Sandbox 沙箱、持久化 Volume、快照和模板。优先用 CLI 完成操作；如果用户只是在询问命令，给出可复制的命令即可。
 
 ## 前置检查：公网权限
 
@@ -275,7 +275,7 @@ ucloud-sandbox-cli logout
 - 不要执行 `ucloud-sandbox-cli login` 或 `ucloud-sandbox-cli region`；让用户在真实终端执行登录，Agent 只通过修改已有配置文件切换地域。
 - 当本地没有 API Key 配置时，不要向用户索取 API Key 并代写配置；提示用户在真实终端运行 `ucloud-sandbox-cli login`，API Key 从星图平台 Key 管理获取。
 - 需要解析列表时优先用 `--format json` 或 `-f json`。
-- 执行破坏性命令前先确认用户意图：`sandbox kill`、`sandbox kill --all`、`fs rm`、`snapshot delete`、`template delete`、`template publish --unpublish`。
+- 执行破坏性命令前先确认用户意图：`sandbox kill`、`sandbox kill --all`、`volume delete`、`fs rm`、`snapshot delete`、`template delete`、`template publish --unpublish`。
 - 不要在回复、日志或命令输出中泄露 API Key；读取 `~/.ucloud-sandbox-cli/config.json` 时必须隐藏 `api_key`，只展示地域、域名等必要字段。
 - 用户要打开交互式终端时，建议让用户在真实终端中运行 `sandbox connect`。
 
@@ -290,9 +290,20 @@ ucloud-sandbox-cli sbx cr base --detach
 
 # 指定超时时间，单位秒
 ucloud-sandbox-cli sandbox create base --timeout 3600 --detach
+
+# 按名称挂载一个持久化 Volume
+ucloud-sandbox-cli sandbox create base --mount workspace:/data --detach
+
+# 重复 --mount 可挂载多个 Volume
+ucloud-sandbox-cli sandbox create base \
+  --mount workspace:/data \
+  --mount model-cache:/cache \
+  --detach
 ```
 
 常见模板：`base`、`code-interpreter-v1`、`desktop`，也可以使用用户自己的模板 ID 或名称。
+
+`--mount` 的格式是 `<volume-name>:<absolute-path>`。左侧必须是 Volume 名称而不是 Volume ID，右侧必须是沙箱内的绝对路径；需要多个挂载时重复传入 `--mount`。
 
 列出沙箱：
 
@@ -337,6 +348,37 @@ ucloud-sandbox-cli sandbox pause <sandbox-id>
 ucloud-sandbox-cli sandbox clone <sandbox-id> --detach
 ucloud-sandbox-cli sandbox kill <sandbox-id>
 ucloud-sandbox-cli sandbox kill --all --state running
+```
+
+## Volume 常用操作
+
+创建持久化 Volume；参数是 Volume 名称：
+
+```bash
+ucloud-sandbox-cli volume create workspace
+ucloud-sandbox-cli vol cr workspace
+```
+
+列出 Volume。需要稳定解析名称和 ID 时使用 JSON 格式：
+
+```bash
+ucloud-sandbox-cli volume list
+ucloud-sandbox-cli volume list --format json
+ucloud-sandbox-cli vol ls -f json
+```
+
+删除 Volume 时使用 `volume list` 返回的 Volume ID，而不是名称。删除属于破坏性操作，执行前确认目标 ID；可以一次删除多个：
+
+```bash
+ucloud-sandbox-cli volume delete <volume-id>
+ucloud-sandbox-cli vol dl <volume-id-1> <volume-id-2>
+```
+
+当前 CLI 只提供 Volume 的创建、列表、删除和沙箱挂载，不提供直接操作 Volume 内文件或目录的命令。需要访问内容时，先创建沙箱并用 Volume 名称挂载，再通过挂载路径执行 `sandbox exec` 或 `fs` 命令：
+
+```bash
+ucloud-sandbox-cli sandbox create base --mount workspace:/data --detach
+ucloud-sandbox-cli sandbox exec <sandbox-id> "ls -la /data"
 ```
 
 ## 文件系统常用操作
@@ -527,6 +569,14 @@ ucloud-sandbox-cli sandbox exec <sandbox-id> "echo hello from sandbox"
 ucloud-sandbox-cli sandbox kill <sandbox-id>
 ```
 
+创建并挂载持久化 Volume：
+
+```bash
+ucloud-sandbox-cli volume create workspace
+ucloud-sandbox-cli sandbox create base --mount workspace:/data --detach
+ucloud-sandbox-cli sandbox exec <sandbox-id> "touch /data/example.txt && ls -la /data"
+```
+
 保存沙箱状态并复用：
 
 ```bash
@@ -553,6 +603,7 @@ ucloud-sandbox-cli sandbox create <template-id-or-name> --detach
 | 创建沙箱后卡在终端 | Agent/CI 中使用 `sandbox create ... --detach` |
 | `template not found` | 运行 `template list --format json` 确认模板 ID/名称 |
 | `sandbox not found` | 运行 `sandbox list --format json` 确认沙箱仍在运行 |
+| 挂载 Volume 失败或 Volume 不存在 | 运行 `volume list --format json` 确认 Volume 名称；`--mount` 使用名称，不使用 Volume ID |
 | metrics 时间参数不识别 | 使用 `--since 1h`、`--start "2026-06-23 12:00"` 这类格式 |
 
 更多 CLI 用法参考：`https://astraflow.ucloud.cn/docs/agent-sandbox/product/cli`。
