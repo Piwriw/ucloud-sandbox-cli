@@ -122,6 +122,15 @@ ucloud-sandbox-cli sandbox create desktop
 ucloud-sandbox-cli sandbox create base
 ```
 
+创建沙箱时可以按 Volume 名称挂载一个或多个持久化 Volume：
+
+```bash
+ucloud-sandbox-cli sandbox create base --mount <volume-name>:/data
+ucloud-sandbox-cli sandbox create base \
+  --mount <volume-name-1>:/data \
+  --mount <volume-name-2>:/cache
+```
+
 > 创建成功后，CLI 会自动连接终端，您可以像操作本地 Shell 一样执行命令。按`Ctrl+D`或输入`exit`退出连接(沙箱继续运行)。
 
 ### 连接现有沙箱
@@ -164,6 +173,27 @@ ucloud-sandbox-cli sandbox metrics <sandbox-id>
 
 # 持续查看指标
 ucloud-sandbox-cli sandbox metrics <sandbox-id> -w
+```
+
+## Volume 管理
+
+创建持久化 Volume：
+
+```bash
+ucloud-sandbox-cli vol create <name>
+```
+
+列出 Volume：
+
+```bash
+ucloud-sandbox-cli vol list
+ucloud-sandbox-cli vol list --format json
+```
+
+删除一个或多个 Volume：
+
+```bash
+ucloud-sandbox-cli vol delete <volume-id...>
 ```
 
 ## 模板构建管理

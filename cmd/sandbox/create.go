@@ -3,21 +3,23 @@ package sandbox
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
-	sdk "github.com/ucloud/ucloud-sandbox-sdk-go"
 	"github.com/ucloud/ucloud-sandbox-cli/internal/config"
+	sdk "github.com/ucloud/ucloud-sandbox-sdk-go"
 )
 
 func newCreateCmd() *cobra.Command {
 	var timeout int
 	var detach bool
+	var mountSpecs []string
 
 	cmd := &cobra.Command{
 		Use:     "create [template]",
 		Aliases: []string{"cr"},
 		Short:   "Create a new sandbox",
-		Args:  cobra.MaximumNArgs(1),
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			template := "base"
 			if len(args) > 0 {
@@ -38,6 +40,13 @@ func newCreateCmd() *cobra.Command {
 			if timeout > 0 {
 				opts = append(opts, sdk.WithTimeout(timeout))
 			}
+			if len(mountSpecs) > 0 {
+				mounts, err := parseVolumeMounts(mountSpecs)
+				if err != nil {
+					return err
+				}
+				opts = append(opts, sdk.WithVolumeMounts(mounts))
+			}
 
 			sbx, err := client.CreateSandbox(ctx, opts...)
 			if err != nil {
@@ -55,5 +64,21 @@ func newCreateCmd() *cobra.Command {
 
 	cmd.Flags().IntVar(&timeout, "timeout", 0, "Sandbox timeout in seconds")
 	cmd.Flags().BoolVar(&detach, "detach", false, "Do not connect to the sandbox after creation")
+	cmd.Flags().StringArrayVar(&mountSpecs, "mount", nil, "Mount volume as <volume-name>:<path> (repeatable)")
 	return cmd
+}
+
+func parseVolumeMounts(values []string) ([]sdk.VolumeMount, error) {
+	mounts := make([]sdk.VolumeMount, 0, len(values))
+	for _, value := range values {
+		volumeName, mountPath, ok := strings.Cut(value, ":")
+		if !ok || volumeName == "" || mountPath == "" {
+			return nil, fmt.Errorf("invalid mount %q: expected <volume-name>:<absolute-path>", value)
+		}
+		if !strings.HasPrefix(mountPath, "/") {
+			return nil, fmt.Errorf("invalid mount %q: mount path must be absolute", value)
+		}
+		mounts = append(mounts, sdk.VolumeMount{Name: volumeName, Path: mountPath})
+	}
+	return mounts, nil
 }

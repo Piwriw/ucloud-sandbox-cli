@@ -10,6 +10,7 @@ import (
 	sandboxcmd "github.com/ucloud/ucloud-sandbox-cli/cmd/sandbox"
 	snapshotcmd "github.com/ucloud/ucloud-sandbox-cli/cmd/snapshot"
 	templatecmd "github.com/ucloud/ucloud-sandbox-cli/cmd/template"
+	volumecmd "github.com/ucloud/ucloud-sandbox-cli/cmd/volume"
 )
 
 var (
@@ -36,6 +37,7 @@ func newCommand() *cobra.Command {
 	c.AddCommand(fscmd.NewFsCmd())
 	c.AddCommand(snapshotcmd.NewSnapshotCmd())
 	c.AddCommand(templatecmd.NewTemplateCmd())
+	c.AddCommand(volumecmd.NewVolumeCmd())
 
 	versionCmd := &cobra.Command{
 		Use:   "version",

@@ -150,13 +150,15 @@ $Summary | ConvertTo-Json -Depth 10
 
 ## PowerShell 调用
 
-- 变量后紧跟远端端点冒号时写成 `${SandboxId}:/path`，避免 PowerShell 把冒号解析为变量作用域。
+- 变量后紧跟远端端点或 Volume 挂载参数的冒号时，写成 `${SandboxId}:/path` 或 `${VolumeName}:/path`，避免 PowerShell 把冒号解析为变量作用域。
 - 包含 `$`、`$()` 或多行 Shell 的远端命令使用单引号 here-string，并把 CRLF 转换为 LF。
 
 ```powershell
 $SandboxId = "<sandbox-id>"
+$VolumeName = "workspace"
 ucloud-sandbox-cli sandbox exec $SandboxId "pwd && ls -la"
 ucloud-sandbox-cli fs cp "C:\work\index.html" "${SandboxId}:/home/user/app/index.html"
+ucloud-sandbox-cli sandbox create base --mount "${VolumeName}:/data" --detach
 
 $RemoteCommand = @'
 printf 'HOME=%s\n' "$HOME"
