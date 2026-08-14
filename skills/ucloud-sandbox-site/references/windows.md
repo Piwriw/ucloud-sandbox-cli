@@ -17,7 +17,7 @@
 - 本地使用 PowerShell 和 Windows `.exe`，不要执行主 `SKILL.md` 中的 Bash 安装、凭证注入或本地打包命令。
 - `sandbox exec` 的命令在远端 Linux 沙箱中运行，继续使用 `/home/user/...`、`source`、`sudo -n` 等 Linux 语法。
 - 本地路径使用 `C:\...`；远端路径使用 `/`。远端端点写成 `${SandboxId}:/path`，避免 PowerShell 把冒号解析成变量作用域。
-- 把完整 `site_...` 视为凭证，不要输出、记录或写入配置文件。每次开启新的 PowerShell 调用时重新设置凭证。
+- 把完整站点连接 Key `site_<sandbox-id>_<code>` 视为凭证（含其中的连接码），不要输出、记录或写入配置文件。每次开启新的 PowerShell 调用时重新设置凭证。
 - 执行需要公网的操作前，先按主 `SKILL.md` 申请并确认网络权限。
 
 ## 检查并安装 CLI
@@ -46,21 +46,30 @@ try {
 
 ## 设置站点凭证并验证连接
 
-只在当前 PowerShell 进程中设置完整站点 ID，并派生去掉 `site_` 前缀的沙箱 ID：
+只在当前 PowerShell 进程中设置完整站点连接 Key，并取 `site_` 前缀之后、第一个 `_` 之前的部分作为沙箱 ID：
 
 ```powershell
-$SiteId = "site_<sandbox-id>"
+$SiteKey = "site_<sandbox-id>_<code>"
 
-if (-not $SiteId.StartsWith("site_", [StringComparison]::Ordinal) -or $SiteId.Length -le 5) {
-  throw "Invalid site ID. Expected site_<sandbox-id>."
+if (-not $SiteKey.StartsWith("site_", [StringComparison]::Ordinal)) {
+  throw "Invalid site connection key. Expected site_<sandbox-id>_<code>."
 }
 
-$SandboxId = $SiteId.Substring(5)
-$env:UCLOUD_SANDBOX_API_KEY = $SiteId
+$SiteBody = $SiteKey.Substring(5)
+$Separator = $SiteBody.IndexOf("_")
+
+if ($Separator -lt 1 -or $Separator -ge $SiteBody.Length - 1) {
+  throw "Legacy or invalid site key. Get a new connection statement (site_<sandbox-id>_<code>) from the AstraFlow site console."
+}
+
+$SandboxId = $SiteBody.Substring(0, $Separator)
+$env:UCLOUD_SANDBOX_API_KEY = $SiteKey
 
 ucloud-sandbox-cli sandbox exec $SandboxId "printf 'SITE_CONNECTED\n'; pwd"
 if ($LASTEXITCODE -ne 0) { throw "Site connection verification failed." }
 ```
+
+如果用户提供的是旧格式 `site_<sandbox-id>`（没有 `_<code>`），上面的校验会抛错。此时不要补全或猜测连接码，直接告知用户格式已更新，请到星图控制台的站点空间页面重新复制站点连接语句。
 
 不要用 `sandbox list` 验证连接。地域或 API 域名仍沿用已有 CLI 配置；需要临时指定时使用 `$env:UCLOUD_SANDBOX_REGION` 和 `$env:UCLOUD_SANDBOX_DOMAIN`，没有证据时不要擅自切换。
 
@@ -138,4 +147,5 @@ ucloud-sandbox-cli sandbox exec $SandboxId $RemoteCommand
 - 命令安装成功但找不到时，将安装目录加入当前进程 `PATH`：`$env:Path = "<安装目录>;$env:Path"`，并确认安装目录已写入用户 `PATH`。
 - 出现 `Variable reference is not valid` 时，检查远端端点是否写成 `${SandboxId}:/path`。
 - 远端多行命令出现 `\r` 或语法错误时，确认 here-string 已通过 `.Replace("`r`n", "`n")` 转换换行。
-- 新的 PowerShell 调用提示缺少 API Key 时，重新设置 `$env:UCLOUD_SANDBOX_API_KEY = $SiteId`，不要把站点 ID 写入持久化配置。
+- 新的 PowerShell 调用提示缺少 API Key 时，重新设置 `$env:UCLOUD_SANDBOX_API_KEY = $SiteKey`，不要把站点连接 Key 写入持久化配置。
+- 鉴权失败时，确认 `$SiteKey` 是完整的 `site_<sandbox-id>_<code>`（连接码未被截断），且 `$SandboxId` 不含连接码。

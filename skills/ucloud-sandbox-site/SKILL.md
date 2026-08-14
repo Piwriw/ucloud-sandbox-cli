@@ -1,6 +1,6 @@
 ---
 name: ucloud-sandbox-site
-description: 当用户提供以 `site_` 开头的 UCloud 站点空间 ID，并要求连接、验证或操作站点空间时使用。适用于在 Linux、macOS 或 Windows 中通过 ucloud-sandbox-cli 验证站点连接、识别访问码保护、执行命令、浏览与管理文件、上传或下载代码、读取站点环境变量，以及生成、构建、部署和排查运行在 80 端口的网站服务；同时遵守站点凭证、站点访问码等敏感信息的单沙箱权限边界和脱敏要求。
+description: 当用户提供以 `site_` 开头的 UCloud 站点空间连接 Key（格式为 `site_<sandbox-id>_<code>`），并要求连接、验证或操作站点空间时使用。适用于在 Linux、macOS 或 Windows 中通过 ucloud-sandbox-cli 校验连接 Key 并派生沙箱 ID、识别旧版 `site_<sandbox-id>` 格式并引导用户到星图站点空间页面重新获取连接语句、验证站点连接、识别访问码保护、执行命令、浏览与管理文件、上传或下载代码、读取站点环境变量，以及生成、构建、部署和排查运行在 80 端口的网站服务；同时遵守站点连接 Key、站点访问码等敏感信息的单沙箱权限边界和脱敏要求。
 ---
 
 # UCloud 站点空间
@@ -15,14 +15,16 @@ description: 当用户提供以 `site_` 开头的 UCloud 站点空间 ID，并�
 
 ## 核心概念
 
-- 站点 ID 格式为 `site_<sandbox-id>`。例如 `site_iy1qen6gs2835o0udufdz` 对应沙箱 ID `iy1qen6gs2835o0udufdz`。
-- 站点 ID 同时是一个受限 API Key。把完整站点 ID 写入 `UCLOUD_SANDBOX_API_KEY`，但向 CLI 传资源 ID 时使用去掉 `site_` 前缀后的沙箱 ID。
+- 站点连接 Key 格式为 `site_<sandbox-id>_<code>`，`<code>` 是站点空间随机生成的连接码，用于防止他人仅凭沙箱 ID 就连接到站点。例如 `site_iy1qen6gs2835o0udufdz_7f3a9c2e` 对应沙箱 ID `iy1qen6gs2835o0udufdz`。
+- 沙箱 ID 是 `site_` 前缀之后、第一个 `_` 之前的部分。连接码只是 Key 的组成部分，不要单独传给 CLI，也不要拼进沙箱 ID。
+- 站点连接 Key 同时是一个受限 API Key。把完整 Key 写入 `UCLOUD_SANDBOX_API_KEY`，但向 CLI 传资源 ID 时只使用派生出的沙箱 ID。
+- 旧格式 `site_<sandbox-id>`（不带 `_<code>`）已不再可用。用户提供旧格式时，不要尝试补全、猜测或省略连接码，也不要改用普通 API Key，直接请用户到星图控制台的[站点空间页面](https://astraflow.ucloud.cn/docs/modelverse/console/station-site)重新复制新的站点连接语句。
 - 站点凭证只能操作它绑定的一个沙箱，不能列出或删除沙箱，也不能操作模板等其他资源。
 - `/home/user/.site.env` 保存用户为网站配置的环境变量。它由站点空间管理，不要删除、覆盖或纳入部署包。
 - 沙箱默认包含 Python 和 Node.js；确有需要时，可以通过 `sandbox exec` 调用 `apt` 安装其他依赖。
 - 沙箱命令默认以 `user` 用户运行。`user` 已配置免密 sudo；绑定 80 端口以及其他需要 root 权限的操作要直接使用非交互的 `sudo -n`，不要先以普通用户试运行。
 
-把站点 ID 视为凭证：不要在回复、日志、生成的代码或仓库文件中重复暴露它，也不要写入 `~/.ucloud-sandbox-cli/config.json`。仅在执行 CLI 的 shell 环境中临时设置。
+把站点连接 Key 视为凭证：不要在回复、日志、生成的代码或仓库文件中重复暴露它（包括其中的连接码），也不要写入 `~/.ucloud-sandbox-cli/config.json`。仅在执行 CLI 的 shell 环境中临时设置。派生出的沙箱 ID 不含连接码，可以正常出现在命令中。
 
 ## 权限和安全边界
 
@@ -61,23 +63,40 @@ Windows 按 [Windows PowerShell 指南](references/windows.md) 使用用户级�
 
 ## 连接站点
 
-### 1. 获取并校验站点 ID
+### 1. 获取并校验站点连接 Key
 
-如果用户还没有提供站点 ID，只向用户索取 `site_...` 格式的站点 ID；不要索取普通 UCloud API Key。先按照上一节完成 CLI 安装和验证。
+如果用户还没有提供站点连接 Key，只向用户索取 `site_<sandbox-id>_<code>` 格式的连接 Key（即站点空间页面上的站点连接语句）；不要索取普通 UCloud API Key，也不要只要沙箱 ID。先按照上一节完成 CLI 安装和验证。
 
-Linux 和 macOS 在同一个 shell 调用中设置凭证并派生沙箱 ID：
+Linux 和 macOS 在同一个 shell 调用中校验 Key、设置凭证并派生沙箱 ID：
 
 ```bash
-SITE_ID='site_<sandbox-id>'
+SITE_KEY='site_<sandbox-id>_<code>'
 
-case "$SITE_ID" in
-  site_?*) ;;
-  *) echo "站点 ID 格式无效，应为 site_<sandbox-id>" >&2; exit 1 ;;
+case "$SITE_KEY" in
+  site_*_*) ;;
+  site_?*)
+    echo "检测到旧版站点 ID 格式 site_<sandbox-id>，已不再支持。请到星图控制台的站点空间页面重新获取站点连接语句（site_<sandbox-id>_<code>）。" >&2
+    exit 1 ;;
+  *)
+    echo "站点连接 Key 格式无效，应为 site_<sandbox-id>_<code>" >&2
+    exit 1 ;;
 esac
 
-SANDBOX_ID="${SITE_ID#site_}"
-export UCLOUD_SANDBOX_API_KEY="$SITE_ID"
+SITE_BODY="${SITE_KEY#site_}"
+SANDBOX_ID="${SITE_BODY%%_*}"
+SITE_CODE="${SITE_BODY#*_}"
+
+if [ -z "$SANDBOX_ID" ] || [ -z "$SITE_CODE" ]; then
+  echo "站点连接 Key 缺少沙箱 ID 或连接码，请到星图控制台的站点空间页面重新获取站点连接语句。" >&2
+  exit 1
+fi
+
+export UCLOUD_SANDBOX_API_KEY="$SITE_KEY"
 ```
+
+`SANDBOX_ID` 只取第一个 `_` 之前的部分，连接码留在 `UCLOUD_SANDBOX_API_KEY` 中；不要把 `SITE_CODE` 或完整 Key 传给任何 CLI 子命令的资源 ID 参数。
+
+校验失败时立即停止，不要继续尝试 `sandbox exec`。用户提供旧格式时，只回复需要到站点空间页面重新获取连接语句，不要输出用户给出的旧 ID 之外的推测值。
 
 环境变量只对当前 shell 进程及其子进程有效。Agent 每次开启新的 shell 调用时，都要重新注入 `UCLOUD_SANDBOX_API_KEY` 并派生 `SANDBOX_ID`，不要假设上一次 `export` 仍然有效。
 
@@ -311,8 +330,9 @@ ucloud-sandbox-cli sandbox exec "$SANDBOX_ID" \
 
 | 现象 | 处理 |
 | --- | --- |
-| `exec` 提示无权限 | 确认完整 `site_...` 被用作 API Key，去掉前缀的值被用作沙箱 ID；不要改用 `sandbox list` 测试 |
-| 提示找不到沙箱 | 检查是否误把完整站点 ID 当成沙箱 ID，并向用户确认站点地域 |
+| 用户提供的是旧格式 `site_<sandbox-id>` | 不要尝试连接或补全连接码；告知格式已更新，请用户到星图控制台的站点空间页面重新复制站点连接语句 |
+| `exec` 提示无权限或鉴权失败 | 确认完整 `site_<sandbox-id>_<code>` 被用作 API Key（连接码没有被截断），派生出的沙箱 ID 被用作资源 ID；仍失败时请用户确认连接语句是否已在控制台重新生成；不要改用 `sandbox list` 测试 |
+| 提示找不到沙箱 | 检查是否误把完整连接 Key 或带连接码的字符串当成沙箱 ID，沙箱 ID 只取第一个 `_` 之前的部分，并向用户确认站点地域 |
 | `.site.env` 不存在 | 报告缺失并询问用户；不要擅自创建或用本地 `.env` 覆盖 |
 | 启动 80 端口时报 `Permission denied` | 确认启动命令从第一次执行就使用 `sudo -n`，不要先用普通用户尝试绑定 80 端口 |
 | `sudo` 等待密码或提示需要终端 | 改用 `sudo -n`；若 `sudo -n true` 失败，报告免密 sudo 配置异常，不要尝试输入密码 |
