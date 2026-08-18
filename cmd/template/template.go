@@ -15,5 +15,6 @@ func NewTemplateCmd() *cobra.Command {
 	cmd.AddCommand(newDeleteCmd())
 	cmd.AddCommand(newPublishCmd())
 	cmd.AddCommand(newInitCmd())
+	cmd.AddCommand(newTagCmd())
 	return cmd
 }
