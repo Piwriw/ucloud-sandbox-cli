@@ -10,6 +10,8 @@ func NewTemplateCmd() *cobra.Command {
 		Short:   "Manage sandbox templates",
 	}
 	cmd.AddCommand(newListCmd())
+	cmd.AddCommand(newGetCmd())
+	cmd.AddCommand(newLogsCmd())
 	cmd.AddCommand(newBuildCmd())
 	cmd.AddCommand(newCreateCmd())
 	cmd.AddCommand(newDeleteCmd())
