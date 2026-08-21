@@ -2,6 +2,8 @@ package prompt
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/manifoldco/promptui"
 	"github.com/ucloud/ucloud-sandbox-cli/internal/template"
@@ -79,8 +81,17 @@ func AskTemplateName(defaultName string) (string, error) {
 
 // Confirm shows a yes/no confirmation prompt.
 func Confirm(label string) (bool, error) {
+	// promptui hands the label to readline, which miscalculates the cursor
+	// position when the label spans several lines and ends up erasing both the
+	// question and the typed answer. Print the leading lines directly and keep
+	// a single line as the label.
+	head, question := confirmLabel(label)
+	if head != "" {
+		fmt.Println(head)
+	}
+
 	p := promptui.Prompt{
-		Label:     label,
+		Label:     question,
 		IsConfirm: true,
 	}
 	_, err := p.Run()
@@ -92,4 +103,17 @@ func Confirm(label string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// confirmLabel splits a multi-line label into the lines printed as they are and
+// the last line, which stays the actual prompt label. The trailing question
+// mark is dropped because promptui appends one to confirmation labels.
+func confirmLabel(label string) (head, question string) {
+	label = strings.TrimRight(label, "\n")
+	if index := strings.LastIndex(label, "\n"); index >= 0 {
+		head, question = label[:index], label[index+1:]
+	} else {
+		question = label
+	}
+	return head, strings.TrimRight(question, " ?")
 }

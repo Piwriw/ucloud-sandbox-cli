@@ -64,11 +64,10 @@ func newPublishCmd() *cobra.Command {
 
 			// Confirm
 			if !yes {
-				msg := fmt.Sprintf("Do you really want to %s these templates?", action)
 				if !unpublish {
-					msg += "\n⚠️  This will make the templates public to everyone outside your team"
+					fmt.Println("⚠️  This will make the templates public to everyone outside your team")
 				}
-				confirmed, err := prompt.Confirm(msg)
+				confirmed, err := prompt.Confirm(fmt.Sprintf("Do you really want to %s these templates?", action))
 				if err != nil {
 					return err
 				}
