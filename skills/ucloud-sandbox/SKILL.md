@@ -186,7 +186,7 @@ curl -sS https://raw.githubusercontent.com/ucloud/ucloud-sandbox-cli/main/instal
 
 ## Step 1：认证和地域配置
 
-API Key 可从星图平台密钥管理获取：`https://astraflow.ucloud.cn/modelverse/api-keys`。常用地域包括 `cn-wlcb` 和 `us-ca`；不确定时询问用户。
+API Key 可从星图平台密钥管理获取：`https://astraflow.ucloud.cn/modelverse/api-keys`。常用地域包括 `cn-wlcb`、`cn-sh` 和 `us-ca`；不确定时询问用户。
 
 持久化配置文件路径是 `~/.ucloud-sandbox-cli/config.json`。Linux 和 macOS 建议目录权限为 `700`、文件权限为 `600`。配置文件是 JSON，格式如下；展示或读取时必须隐藏 `api_key`：
 
@@ -201,7 +201,7 @@ API Key 可从星图平台密钥管理获取：`https://astraflow.ucloud.cn/mode
 字段说明：
 
 - `api_key`：用户的 UCloud Sandbox API Key，必须保密。
-- `region`：地域，例如 `cn-wlcb` 或 `us-ca`。
+- `region`：地域，例如 `cn-wlcb`、`cn-sh` 或 `us-ca`。
 - `domain`：可选，显式 API 域名；存在时优先于 `region` 推导出的默认域名。
 
 不要让 Agent 执行 `ucloud-sandbox-cli login` 或 `ucloud-sandbox-cli region`。这两个命令需要真实交互式终端，Agent/CI 中通常会失败。

@@ -9,7 +9,7 @@ import (
 	"github.com/ucloud/ucloud-sandbox-cli/internal/template"
 )
 
-var predefinedRegions = []string{"cn-wlcb", "us-ca"}
+var predefinedRegions = []string{"cn-wlcb", "cn-sh", "us-ca"}
 
 // AskAPIKey prompts for an API key with masked input.
 func AskAPIKey() (string, error) {
