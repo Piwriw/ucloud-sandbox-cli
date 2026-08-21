@@ -16,8 +16,8 @@ import (
 
 // listedTemplate is a display-friendly view of TemplateInfo for table rendering.
 type listedTemplate struct {
-	TemplateID string    `table_field:"Template ID"`
 	Names      string    `table_field:"Name"`
+	Status     string    `table_field:"Status"`
 	Visibility string    `table_field:"Access"`
 	CPUCount   int       `table_field:"vCPU"`
 	MemoryMB   int       `table_field:"RAM (MB)"`
@@ -26,13 +26,21 @@ type listedTemplate struct {
 
 func toListedTemplate(t sdk.TemplateInfo) listedTemplate {
 	return listedTemplate{
-		TemplateID: t.TemplateID,
 		Names:      strings.Join(t.Names, ", "),
+		Status:     buildStatus(t.BuildStatus),
 		Visibility: visibility(t.Public),
 		CPUCount:   t.CPUCount,
 		MemoryMB:   t.MemoryMB,
 		CreatedAt:  t.CreatedAt,
 	}
+}
+
+// buildStatus renders the status of the template's latest build.
+func buildStatus(status string) string {
+	if status == "" {
+		return "-"
+	}
+	return capitalize(status)
 }
 
 func visibility(public bool) string {
