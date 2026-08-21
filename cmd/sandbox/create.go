@@ -21,7 +21,7 @@ func newCreateCmd() *cobra.Command {
 		Short:   "Create a new sandbox",
 		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			template := "base"
+			template := "system/base"
 			if len(args) > 0 {
 				template = args[0]
 			}
