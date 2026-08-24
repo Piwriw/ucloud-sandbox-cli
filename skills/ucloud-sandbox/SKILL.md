@@ -1,6 +1,6 @@
 ---
 name: ucloud-sandbox
-description: 当用户需要在 Linux、macOS 或 Windows 中用 UCloud Sandbox CLI 操作沙箱服务时使用，包括安装或配置 ucloud-sandbox-cli、设置 API Key 和地域、创建/连接/执行/暂停/终止沙箱、管理持久化 Volume、创建沙箱时挂载 Volume、浏览和管理沙箱文件、上传或下载文件、查看端口地址和监控指标、管理快照与模板，以及在 Claude Code、Codex、Gemini 等 Agent 中安装本技能。
+description: 当用户需要在 Linux、macOS 或 Windows 中用 UCloud Sandbox CLI 操作沙箱服务时使用，包括安装、自我更新或配置 ucloud-sandbox-cli、设置 API Key 和地域、创建/连接/执行/暂停/终止沙箱、管理持久化 Volume、创建沙箱时挂载 Volume、浏览和管理沙箱文件、上传或下载文件、查看端口地址和监控指标、管理快照与模板，以及在 Claude Code、Codex、Gemini 等 Agent 中安装本技能。
 ---
 
 # UCloud Sandbox CLI
@@ -164,23 +164,33 @@ curl -fsSL "$SKILL_URL" -o "$SKILL_DIR/SKILL.md"
 echo "ucloud-sandbox skill updated at $SKILL_DIR"
 ```
 
-Linux 和 macOS 更新 `ucloud-sandbox-cli` 到最新版本：
+从 `v1.3.4` 开始，CLI 自带 `update` 命令，可以自我更新到最新版本，不需要重新下载安装脚本。Agent 没有交互式终端，必须带 `-y` 跳过确认，否则命令会一直等待输入：
 
 ```bash
+ucloud-sandbox-cli update -y
+ucloud-sandbox-cli version
+```
+
+`update` 会查询 GitHub 最新 Release，下载与当前系统和架构匹配的二进制，校验 SHA256 后替换当前程序。只检查不安装时使用 `--dry-run`，它会打印当前版本、最新版本和下载地址：
+
+```bash
+ucloud-sandbox-cli update --dry-run
+```
+
+如果 CLI 安装在 `/usr/local/bin` 等需要管理员权限的目录，`update` 会报无权限写入。这时不要让 Agent 自行使用 sudo，提示用户在真实终端执行 `sudo ucloud-sandbox-cli update`。
+
+如果查询版本时报 GitHub API 限流，让用户设置 `GITHUB_TOKEN` 环境变量后重试。
+
+`v1.3.3` 及以前的版本没有 `update` 命令，需要更新到指定版本或改用其他安装目录时，仍然使用安装脚本：
+
+```bash
+# 更新到最新版本
 curl -sS https://raw.githubusercontent.com/ucloud/ucloud-sandbox-cli/main/install.sh | sh -s -- -y
-ucloud-sandbox-cli version
-```
 
-更新到指定版本：
+# 更新到指定版本
+curl -sS https://raw.githubusercontent.com/ucloud/ucloud-sandbox-cli/main/install.sh | sh -s -- -y -v v1.3.4
 
-```bash
-curl -sS https://raw.githubusercontent.com/ucloud/ucloud-sandbox-cli/main/install.sh | sh -s -- -y -v v1.2.3
-ucloud-sandbox-cli version
-```
-
-如果原先安装在自定义目录，更新时继续传入同一个目录：
-
-```bash
+# 原先安装在自定义目录时，继续传入同一个目录
 curl -sS https://raw.githubusercontent.com/ucloud/ucloud-sandbox-cli/main/install.sh | sh -s -- -y -p "$HOME/.local/bin"
 ```
 

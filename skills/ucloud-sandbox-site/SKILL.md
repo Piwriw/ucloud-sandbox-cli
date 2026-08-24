@@ -59,6 +59,14 @@ sh "$TMP_DIR/install.sh" -y -p "$HOME/.local/bin" && \
 
 Windows 按 [Windows PowerShell 指南](references/windows.md) 使用用户级安装目录；同样把安装与版本验证合并成一次获批的主机命令。
 
+仅当用户明确要求更新 CLI 时，如果已安装的版本是 `v1.3.4` 或更高，直接用自带的 `update` 命令，不必重新下载安装脚本。这里没有交互式终端，必须带 `-y` 跳过确认：
+
+```bash
+ucloud-sandbox-cli update -y && ucloud-sandbox-cli version
+```
+
+`update` 会校验 Release SHA256 后替换当前程序，保持原安装目录不变。低于 `v1.3.4` 的版本没有该命令，按上面的安装流程重装。查询版本报 GitHub API 限流时，说明原因并让用户稍后重试或设置 `GITHUB_TOKEN`。
+
 本节只准备 `ucloud-sandbox-cli`，不要安装或更新本 Skill 本身。
 
 ## 连接站点

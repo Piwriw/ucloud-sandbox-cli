@@ -68,7 +68,19 @@ if ($LASTEXITCODE -ne 0) { throw "ucloud-sandbox-cli verification failed." }
 
 ## 更新 CLI
 
-仅在用户明确要求更新 CLI 时执行。更新到 latest 时保持 `$InstallArgs` 为空；指定版本或沿用自定义目录时设置相应字段，可以同时设置：
+仅在用户明确要求更新 CLI 时执行。
+
+从 `v1.3.4` 开始，CLI 自带 `update` 命令，可以自我更新到最新版本。PowerShell 中同样没有交互式确认，必须带 `-y`：
+
+```powershell
+ucloud-sandbox-cli update -y
+if ($LASTEXITCODE -ne 0) { throw "ucloud-sandbox-cli update failed." }
+ucloud-sandbox-cli version
+```
+
+`update` 会下载与当前架构匹配的 ZIP，校验 SHA256 后替换当前程序。只检查不安装时使用 `ucloud-sandbox-cli update --dry-run`。默认安装目录 `%LOCALAPPDATA%\Programs\ucloud-sandbox-cli` 属于当前用户，不需要管理员权限；如果 CLI 被装到 `Program Files` 等位置，让用户在管理员 PowerShell 中执行更新。查询版本报 GitHub API 限流时，让用户设置 `GITHUB_TOKEN` 环境变量后重试。
+
+`v1.3.3` 及以前的版本没有 `update` 命令，需要指定版本或沿用自定义目录时，仍然调用安装脚本。更新到 latest 时保持 `$InstallArgs` 为空；指定版本或沿用自定义目录时设置相应字段，可以同时设置：
 
 ```powershell
 $InstallArgs = @{

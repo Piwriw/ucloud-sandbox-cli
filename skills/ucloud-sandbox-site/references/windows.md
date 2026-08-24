@@ -42,6 +42,17 @@ try {
 ```
 
 这里显式覆盖安装器默认值，统一安装到真实用户的 `$HOME\.local\bin`；AstraFlow 只读挂载这个通用用户 CLI 目录。安装本身只允许通过一次明确的主机执行授权完成。
+
+仅当用户明确要求更新 CLI 时，如果已安装的版本是 `v1.3.4` 或更高，直接用自带的 `update` 命令，它会校验 Release SHA256 后替换当前程序并保持原安装目录。这里没有交互式终端，必须带 `-y`：
+
+```powershell
+ucloud-sandbox-cli update -y
+if ($LASTEXITCODE -ne 0) { throw "ucloud-sandbox-cli update failed." }
+ucloud-sandbox-cli version
+```
+
+低于 `v1.3.4` 的版本没有该命令，按上面的安装流程重装。
+
 如果上述 PowerShell 安装流程失败，保留原始错误并主动查找其他可行安装方式，例如从官方 Release 手动下载与当前架构匹配的 ZIP；先向用户说明方案来源、操作、安装位置和风险，仅在用户明确同意后执行。替代方案只使用 `ucloud/ucloud-sandbox-cli` 官方仓库或官方 Release，并保持 TLS、证书和证书吊销校验；不要关闭安全校验、绕过系统安全策略或改用未经用户确认的第三方来源。若失败源于代理、证书或管理员权限，让用户在真实终端或由管理员处理。完成后确认 `ucloud-sandbox-cli version` 成功，且用户 `PATH` 已包含安装目录；否则不要继续连接站点。
 
 ## 设置站点凭证并验证连接

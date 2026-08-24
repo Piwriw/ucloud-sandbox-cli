@@ -36,6 +36,34 @@ Invoke-RestMethod https://raw.githubusercontent.com/ucloud/ucloud-sandbox-cli/ma
 
 Windows 安装脚本会自动选择 amd64 或 arm64 版本，默认安装到`%LOCALAPPDATA%\Programs\ucloud-sandbox-cli`，并将该目录加入用户`PATH`。
 
+### 更新 CLI
+
+从`v1.3.4`开始，CLI 可以自我更新，不需要重新执行安装脚本：
+
+```bash
+ucloud-sandbox-cli update
+```
+
+该命令会查询 GitHub 上的最新 Release，打印当前版本、最新版本和安装路径，等您输入`y`确认后，再下载与当前系统和架构匹配的二进制，校验 SHA256 并替换当前程序。
+
+如果只想检查是否有新版本，不做任何改动，使用`--dry-run`：
+
+```bash
+ucloud-sandbox-cli update --dry-run
+```
+
+在脚本或 CI 中可以用`-y`跳过确认：
+
+```bash
+ucloud-sandbox-cli update -y
+```
+
+几点说明：
+
+- 如果 CLI 安装在`/usr/local/bin`等需要管理员权限的目录，请使用`sudo ucloud-sandbox-cli update`。
+- `v1.3.3`及以前的版本没有`update`命令，请重新执行上面的安装脚本来升级。
+- 该命令使用 GitHub 的匿名 API 查询版本，如果遇到限流报错，可以设置`GITHUB_TOKEN`环境变量后重试。
+
 ## 身份认证与配置
 
 ### 环境注入
