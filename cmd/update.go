@@ -11,13 +11,14 @@ import (
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
+	"github.com/ucloud/ucloud-sandbox-cli/internal/prompt"
 	"github.com/ucloud/ucloud-sandbox-cli/internal/selfupdate"
 )
 
 // NewUpdateCmd creates the update command. currentVersion is the version
 // stamped into this binary at build time.
 func NewUpdateCmd(currentVersion string) *cobra.Command {
-	var dryRun bool
+	var dryRun, yes bool
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -28,16 +29,17 @@ func NewUpdateCmd(currentVersion string) *cobra.Command {
 			if ctx == nil {
 				ctx = context.Background()
 			}
-			return runUpdate(ctx, currentVersion, dryRun)
+			return runUpdate(ctx, currentVersion, dryRun, yes)
 		},
 	}
 
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Only check for a newer release and show what would be downloaded")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation")
 
 	return cmd
 }
 
-func runUpdate(ctx context.Context, currentVersion string, dryRun bool) error {
+func runUpdate(ctx context.Context, currentVersion string, dryRun, yes bool) error {
 	assetName, err := selfupdate.AssetName(runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		return err
@@ -96,6 +98,18 @@ func runUpdate(ctx context.Context, currentVersion string, dryRun bool) error {
 		fmt.Println()
 		fmt.Println("Dry run, nothing was downloaded or installed.")
 		return nil
+	}
+
+	if !yes {
+		fmt.Printf("Install path:    %s\n", executable)
+		confirmed, err := prompt.Confirm(fmt.Sprintf("Update %s to %s?", displayedVersion, release.TagName))
+		if err != nil {
+			return err
+		}
+		if !confirmed {
+			fmt.Println("Canceled.")
+			return nil
+		}
 	}
 
 	archive, err := download(ctx, client, asset)
