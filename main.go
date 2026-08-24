@@ -38,6 +38,7 @@ func newCommand() *cobra.Command {
 	c.AddCommand(snapshotcmd.NewSnapshotCmd())
 	c.AddCommand(templatecmd.NewTemplateCmd())
 	c.AddCommand(volumecmd.NewVolumeCmd())
+	c.AddCommand(cmd.NewUpdateCmd(Version))
 
 	versionCmd := &cobra.Command{
 		Use:   "version",
