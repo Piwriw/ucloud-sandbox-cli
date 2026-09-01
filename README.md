@@ -245,6 +245,12 @@ cd my-custom-env
 ucloud-sandbox-cli tpl build my-custom-env
 ```
 
+可使用 `--level` 控制构建日志的最低等级（`debug`、`info`、`warn` 或 `error`），默认为 `info`：
+
+```bash
+ucloud-sandbox-cli tpl build my-custom-env --level debug
+```
+
 ### 发布模板
 
 默认情况下，模板只能由您当前的项目访问，如果您需要其他人也能使用模板，需要公开：
