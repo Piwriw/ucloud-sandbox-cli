@@ -3,11 +3,18 @@ package template
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/ucloud/ucloud-sandbox-cli/internal/config"
 	"github.com/ucloud/ucloud-sandbox-cli/internal/template"
 	sdk "github.com/ucloud/ucloud-sandbox-sdk-go"
+)
+
+const (
+	fallbackDockerfileName = "Dockerfile"
+	defaultDockerfileName  = "template.dockerfile"
 )
 
 type buildFlags struct {
@@ -17,9 +24,12 @@ type buildFlags struct {
 	readyCmd   string
 	cpuCount   int
 	memoryMB   int
+	cpuSet     bool
+	memorySet  bool
 	noCache    bool
 	publish    bool
 	tags       []string
+	logLevel   string
 }
 
 func newBuildCmd() *cobra.Command {
@@ -34,15 +44,20 @@ func buildCommand(use string, aliases []string, short string) *cobra.Command {
 	var flags buildFlags
 
 	cmd := &cobra.Command{
-		Use:     use + " <template-name>",
+		Use:     use + " [template-name]",
 		Aliases: aliases,
 		Short:   short,
-		Args:    cobra.ExactArgs(1),
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runBuild(args[0], &flags)
+			flags.cpuSet = cmd.Flags().Changed("cpu-count")
+			flags.memorySet = cmd.Flags().Changed("memory-mb")
+			name := ""
+			if len(args) == 1 {
+				name = args[0]
+			}
+			return runBuild(name, &flags)
 		},
 	}
-
 	cmd.Flags().StringVarP(&flags.path, "path", "p", ".", "Build context path")
 	cmd.Flags().StringVarP(&flags.dockerfile, "dockerfile", "d", "", "Dockerfile path")
 	cmd.Flags().StringVar(&flags.startCmd, "cmd", "", "Start command")
@@ -52,27 +67,45 @@ func buildCommand(use string, aliases []string, short string) *cobra.Command {
 	cmd.Flags().BoolVar(&flags.noCache, "no-cache", false, "Skip build cache")
 	cmd.Flags().BoolVar(&flags.publish, "publish", false, "Publish after build")
 	cmd.Flags().StringSliceVarP(&flags.tags, "tag", "t", nil, "Build tags")
-
+	cmd.Flags().StringVar(&flags.logLevel, "level", "info", "Minimum build log level (debug, info, warn, error)")
 	return cmd
 }
 
 func runBuild(name string, flags *buildFlags) error {
-	// 1. Validate name
+	contextPath, localCfg := resolveBuildContext(name, flags.path)
+	if name == "" && localCfg != nil {
+		name = localCfg.TemplateName
+	}
+	if name == "" {
+		return fmt.Errorf("template name is required; provide it as an argument or in ucloud-template.json")
+	}
 	if err := template.ValidateName(name); err != nil {
 		return err
 	}
-
-	// 2. Validate memory (must be even)
+	if localCfg != nil {
+		if !flags.cpuSet && localCfg.CPUCount > 0 {
+			flags.cpuCount = localCfg.CPUCount
+		}
+		if !flags.memorySet && localCfg.MemoryMB > 0 {
+			flags.memoryMB = localCfg.MemoryMB
+		}
+		if flags.dockerfile == "" && localCfg.Dockerfile != "" {
+			flags.dockerfile = localCfg.Dockerfile
+		}
+	}
+	if flags.cpuCount <= 0 {
+		return fmt.Errorf("CPU count must be greater than zero, got %d", flags.cpuCount)
+	}
+	if flags.memoryMB <= 0 {
+		return fmt.Errorf("memory must be greater than zero, got %d", flags.memoryMB)
+	}
 	if flags.memoryMB%2 != 0 {
 		return fmt.Errorf("memory must be an even number, got %d", flags.memoryMB)
 	}
-
-	// 3. Validate start/ready cmd
 	if flags.startCmd == "" && flags.readyCmd != "" {
 		return fmt.Errorf("both --cmd and --ready-cmd must be provided together")
 	}
 
-	// 4. Load config and create client
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -81,23 +114,22 @@ func runBuild(name string, flags *buildFlags) error {
 	if err != nil {
 		return err
 	}
-
-	// 5. Build template
-	ctx := context.Background()
-
-	// Create builder (simplified: FromBaseImage + RunCmd)
-	builder := sdk.NewTemplate(sdk.WithFileContextPath(flags.path)).FromBaseImage()
-
-	if flags.startCmd != "" {
-		builder = builder.SetStartCmd(flags.startCmd, sdk.ReadyCmd{Cmd: flags.readyCmd})
+	dockerfilePath, err := resolveDockerfilePath(contextPath, flags.dockerfile)
+	if err != nil {
+		return err
 	}
-
-	// Build options
+	builder, err := sdk.NewTemplate(sdk.WithFileContextPath(contextPath)).FromDockerfile(dockerfilePath)
+	if err != nil {
+		return err
+	}
+	if flags.startCmd != "" {
+		builder.SetStartCmd(flags.startCmd, sdk.ReadyCmd{Cmd: flags.readyCmd})
+	}
 	opts := []sdk.BuildOption{
 		sdk.WithBuildCPUCount(flags.cpuCount),
 		sdk.WithBuildMemoryMB(flags.memoryMB),
 		sdk.WithBuildSkipCache(flags.noCache),
-		sdk.WithOnBuildLogs(sdk.DefaultBuildLogger()),
+		sdk.WithOnBuildLogs(sdk.DefaultBuildLoggerWithLevel(flags.logLevel)),
 	}
 	if len(flags.tags) > 0 {
 		opts = append(opts, sdk.WithBuildTags(flags.tags))
@@ -105,20 +137,58 @@ func runBuild(name string, flags *buildFlags) error {
 	if flags.publish {
 		opts = append(opts, sdk.WithPublishTemplate())
 	}
-
 	fmt.Println("\nBuilding sandbox template...")
 	fmt.Println()
-
-	info, err := client.BuildTemplate(ctx, builder, name, opts...)
+	info, err := client.BuildTemplate(context.Background(), builder, name, opts...)
 	if err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
-
-	// 6. Print success
 	fmt.Printf("\n✅ Building sandbox template finished.\n")
 	fmt.Printf("Template ID: %s\n", info.TemplateID)
 	fmt.Printf("Build ID: %s\n", info.BuildID)
 	fmt.Printf("\nYou can now use the template to create sandboxes.\n")
-
 	return nil
+}
+
+// resolveBuildContext prefers the template's named directory, then --path itself.
+func resolveBuildContext(name, path string) (string, *LocalConfig) {
+	candidate := filepath.Join(path, name)
+	if cfg, err := loadConfig(candidate); err == nil {
+		return candidate, cfg
+	}
+	if cfg, err := loadConfig(path); err == nil {
+		return path, cfg
+	}
+	return path, nil
+}
+
+// resolveDockerfilePath resolves the Dockerfile path from context or explicit input.
+func resolveDockerfilePath(contextPath, explicit string) (string, error) {
+	if explicit != "" {
+		path := explicit
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(contextPath, path)
+		}
+		if _, err := os.Stat(path); err != nil {
+			return "", fmt.Errorf("dockerfile %q: %w", path, err)
+		}
+		return path, nil
+	}
+	if cfg, err := loadConfig(contextPath); err == nil && cfg.Dockerfile != "" {
+		path := cfg.Dockerfile
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(contextPath, path)
+		}
+		if _, err := os.Stat(path); err != nil {
+			return "", fmt.Errorf("dockerfile %q: %w", path, err)
+		}
+		return path, nil
+	}
+	for _, filename := range []string{defaultDockerfileName, fallbackDockerfileName} {
+		path := filepath.Join(contextPath, filename)
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+	return "", fmt.Errorf("no Dockerfile found in %q", contextPath)
 }
