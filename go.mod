@@ -9,7 +9,7 @@ require (
 	github.com/schollz/progressbar/v3 v3.19.1
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
-	github.com/ucloud/ucloud-sandbox-sdk-go v0.0.0-20260901065209-638d8b157dc0
+	github.com/ucloud/ucloud-sandbox-sdk-go v0.0.0-20260901104032-07e3348267f2
 	golang.org/x/mod v0.40.0
 	golang.org/x/term v0.44.0
 )
