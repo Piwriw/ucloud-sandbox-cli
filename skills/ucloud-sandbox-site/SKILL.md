@@ -171,6 +171,78 @@ ucloud-sandbox-cli sandbox exec "$SANDBOX_ID" "python3 --version && node --versi
 ucloud-sandbox-cli sandbox exec "$SANDBOX_ID" "sudo -n apt-get update && sudo -n apt-get install -y <package>"
 ```
 
+### PostgreSQL 15 与 pgvector（仅适用于 site 模板）
+
+基于 `site` 系列模板（规格模板命名格式为 `site-{CPU核数}c-{内存GiB数}g`）构建的站点内置 PostgreSQL 15、客户端和 pgvector。先检查实际环境，不要仅凭站点连接 Key 判断数据库已安装或已启动：
+
+```bash
+ucloud-sandbox-cli sandbox exec "$SANDBOX_ID" \
+  "whoami && command -v start-postgres && command -v stop-postgres && psql --version"
+```
+
+默认 Linux 用户应为 `user`。`base` 模板不包含这些数据库组件；若命令缺失，先确认站点模板和实际安装情况，不要用站点凭证创建或替换沙箱。
+
+#### 启动、验证和停止
+
+- `start-postgres` 内部执行 `sudo -n systemctl start postgresql-vector.service`，由其依赖启动 `postgresql@15-main.service`，调用者无需再包一层 sudo。
+- `postgresql-vector.service` 是以 `postgres` 运行的 oneshot 初始化单元：通过 `enable-pgvector` 按需创建非超级用户角色 `user`、由该角色拥有的 `ucloud` 数据库，并在 `ucloud` 中执行 `CREATE EXTENSION IF NOT EXISTS vector`。
+- 初始化单元使用 `RemainAfterExit=yes`，显示 `active (exited)` 正常；重复启动已活动的单元不会重新执行初始化 SQL，也不会修正已有角色或数据库的属性。
+
+在同一沙箱中启动数据库：
+
+```bash
+ucloud-sandbox-cli sandbox exec "$SANDBOX_ID" "start-postgres"
+```
+
+通过 Unix Socket 检查服务、连接身份和向量类型。`pg_isready` 只能检查服务就绪，后面的 SQL 成功才证明应用身份可以连接并使用 pgvector：
+
+```bash
+ucloud-sandbox-cli sandbox exec "$SANDBOX_ID" \
+  "sudo -n systemctl is-active postgresql@15-main.service && \
+   sudo -n systemctl is-active postgresql-vector.service && \
+   pg_isready -h /var/run/postgresql -p 5432 -U user -d ucloud && \
+   psql -X -w -v ON_ERROR_STOP=1 -h /var/run/postgresql -p 5432 -U user -d ucloud \
+     -c \"SELECT current_user, current_database(), '[1,2,3]'::vector;\""
+```
+
+预期查询返回 `user`、`ucloud` 和 `[1,2,3]`。需要停止数据库时执行：
+
+```bash
+ucloud-sandbox-cli sandbox exec "$SANDBOX_ID" "stop-postgres"
+```
+
+`stop-postgres` 内部停止 `postgresql@15-main.service`，初始化单元随依赖关系一起停止；它不会删除数据库。不要把停止数据库作为连接验证的收尾步骤，以免中断网站。
+
+#### 应用连接配置
+
+模板默认使用本地 Unix Socket 目录 `/var/run/postgresql`、端口 `5432`、数据库 `ucloud` 和角色 `user`。`pg_hba.conf` 对本地 Socket 使用 `peer` 认证，对 IPv4、IPv6 的所有 TCP 连接（含回环地址）使用 `reject`；模板同时关闭了 PostgreSQL SSL。
+
+- 应用和迁移命令必须在同一沙箱内以 Linux 用户 `user` 运行。peer 核对操作系统身份，仅在配置中填写数据库用户名 `user` 并不能让 root 进程通过认证。
+- 显式指定 Socket 目录，不使用 `127.0.0.1` 或 `localhost`。不要假定省略 `host` 就会使用 Socket，例如 Node.js 的 `pg` 默认连接 `localhost`。
+- 指定 Socket 目录后，`port=5432` 选择的是 `.s.PGSQL.5432` Socket 文件，并不代表走 TCP。此连接不需要数据库密码，也不要要求 SSL 或放开 `pg_hba.conf` 来修复连接。
+- 不要使用超级用户 `postgres` 运行业务应用；必要的管理员操作使用 `sudo -n -u postgres psql`。
+
+应用连接示例：
+
+| 客户端 | 连接示例 |
+| --- | --- |
+| Python / psycopg | `psycopg.connect("host=/var/run/postgresql port=5432 dbname=ucloud user=user")` |
+| Node.js / pg | `new Pool({ host: '/var/run/postgresql', port: 5432, database: 'ucloud', user: 'user' })` |
+| Go / pgx 或 lib/pq | `host=/var/run/postgresql port=5432 dbname=ucloud user=user sslmode=disable` |
+
+#### 同时满足 peer 认证和 80 端口要求
+
+使用数据库的动态网站不能套用后文的 root 静态服务启动示例。可通过 systemd 的 `User=user` 与 `AmbientCapabilities=CAP_NET_BIND_SERVICE` 让应用以 `user` 身份绑定 `0.0.0.0:80`，使用 `sudo -n` 管理服务。此时进程、PID 和日志由 systemd 管理，无需另存 PID 文件；环境变量加载和 HTTP 验证仍按部署章节执行。
+
+#### 数据库排错
+
+| 现象 | 处理 |
+| --- | --- |
+| Socket 不存在或连接被拒绝 | 检查 `start-postgres` 结果、`systemctl status postgresql@15-main.service postgresql-vector.service` 和 `/var/run/postgresql`；需要日志时使用 `sudo -n journalctl -u postgresql@15-main.service -u postgresql-vector.service -n 100 --no-pager`，输出前检查是否包含敏感内容 |
+| `pg_hba.conf rejects connection`，或日志出现 `127.0.0.1` / `::1` | 客户端走了 TCP；显式把 `host` 改成 Socket 目录，并检查环境变量或连接 URL 是否覆盖配置 |
+| `Peer authentication failed` 或 `role "root" does not exist` | 检查实际应用或迁移进程的 Linux 用户与数据库角色，改为 `user`；不要通过 `trust`、密码或放开 TCP 绕过 peer |
+| 缺少 `ucloud`、`user` 或 `vector` 类型 | 检查初始化单元状态和日志，并确认连接的是 `ucloud`；初始化脚本只在该数据库中启用 `vector` |
+
 ### 浏览和读取文件
 
 ```bash
@@ -326,7 +398,7 @@ ucloud-sandbox-cli sandbox exec "$SANDBOX_ID" '
 
 启动前通过 sudo 创建日志和 PID 文件，再把所有者归还给 `user`，既能兼容先前试错留下的 root 文件，也能避免后续维护需要一直提权。必须在 root 启动器内部记录 `$!`，确保 PID 指向真正的网站服务，而不是外层 `sudo` 包装进程。
 
-对于 SSR、Node 或其他动态服务，保留同样的 `sudo -n`、PID、日志、后台运行和环境变量加载模式，把 `exec python3 ...` 替换成项目的生产启动命令，并显式设置或传入 `HOST=0.0.0.0`、`PORT=80`。不要把开发服务器当作默认的生产部署方案。
+对于不使用本地 PostgreSQL 的 SSR、Node 或其他动态服务，保留同样的 `sudo -n`、PID、日志、后台运行和环境变量加载模式，把 `exec python3 ...` 替换成项目的生产启动命令，并显式设置或传入 `HOST=0.0.0.0`、`PORT=80`。不要把开发服务器当作默认的生产部署方案。
 
 ### 验证并返回地址
 
