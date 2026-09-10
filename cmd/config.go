@@ -22,14 +22,16 @@ func NewConfigCmd() *cobra.Command {
 			}
 
 			masked := *cfg
-			masked.APIKey = maskAPIKey(masked.APIKey)
+			masked.APIKey = maskSecret(masked.APIKey)
+			masked.RegistryPassword = maskSecret(masked.RegistryPassword)
 			return writeConfig(cmd.OutOrStdout(), &masked)
 		},
 	}
 }
 
-func maskAPIKey(apiKey string) string {
-	if apiKey == "" {
+// maskSecret masks a sensitive config value.
+func maskSecret(secret string) string {
+	if secret == "" {
 		return ""
 	}
 	return "****"

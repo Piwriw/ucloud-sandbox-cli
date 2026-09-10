@@ -21,14 +21,19 @@ const (
 	envRegion       = "UCLOUD_SANDBOX_REGION"
 	envDomain       = "UCLOUD_SANDBOX_DOMAIN"
 	envInsecureHTTP = "UCLOUD_SANDBOX_INSECURE_HTTP"
+
+	envRegistryUsername = "UCLOUD_SANDBOX_REGISTRY_USERNAME"
+	envRegistryPassword = "UCLOUD_SANDBOX_REGISTRY_PASSWORD"
 )
 
 // Config holds the CLI configuration.
 type Config struct {
-	APIKey       string `json:"api_key,omitempty"`
-	Region       string `json:"region,omitempty"`
-	Domain       string `json:"domain,omitempty"`
-	InsecureHTTP bool   `json:"insecure_http,omitempty"`
+	APIKey           string `json:"api_key,omitempty"`
+	Region           string `json:"region,omitempty"`
+	Domain           string `json:"domain,omitempty"`
+	InsecureHTTP     bool   `json:"insecure_http,omitempty"`
+	RegistryUsername string `json:"registry_username,omitempty"`
+	RegistryPassword string `json:"registry_password,omitempty"`
 }
 
 // configPath returns the path to the config file.
@@ -74,6 +79,12 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("parse %s: %w", envInsecureHTTP, err)
 		}
 		cfg.InsecureHTTP = insecureHTTP
+	}
+	if v := os.Getenv(envRegistryUsername); v != "" {
+		cfg.RegistryUsername = v
+	}
+	if v := os.Getenv(envRegistryPassword); v != "" {
+		cfg.RegistryPassword = v
 	}
 
 	return cfg, nil
