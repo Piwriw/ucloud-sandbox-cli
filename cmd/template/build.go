@@ -109,14 +109,16 @@ func runBuild(name string, flags *buildFlags) error {
 	if flags.startCmd == "" && flags.readyCmd != "" {
 		return fmt.Errorf("both --cmd and --ready-cmd must be provided together")
 	}
-	if (flags.registryUsername == "") != (flags.registryPassword == "") {
-		return fmt.Errorf("both --registry-username and --registry-password must be provided together")
-	}
 
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
+	applyRegistryCredentials(flags, cfg)
+	if (flags.registryUsername == "") != (flags.registryPassword == "") {
+		return fmt.Errorf("both --registry-username and --registry-password must be provided together (or set them in the config file)")
+	}
+
 	client, err := config.NewClient(cfg)
 	if err != nil {
 		return err
@@ -158,6 +160,17 @@ func runBuild(name string, flags *buildFlags) error {
 	fmt.Printf("Build ID: %s\n", info.BuildID)
 	fmt.Printf("\nYou can now use the template to create sandboxes.\n")
 	return nil
+}
+
+// applyRegistryCredentials fills missing registry credentials from the global
+// config; explicit flags take precedence.
+func applyRegistryCredentials(flags *buildFlags, cfg *config.Config) {
+	if flags.registryUsername == "" {
+		flags.registryUsername = cfg.RegistryUsername
+	}
+	if flags.registryPassword == "" {
+		flags.registryPassword = cfg.RegistryPassword
+	}
 }
 
 // resolveBuildContext prefers the template's named directory, then --path itself.

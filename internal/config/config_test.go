@@ -27,7 +27,7 @@ func writeConfig(t *testing.T, home string, cfg *Config) {
 
 func clearEnv(t *testing.T) {
 	t.Helper()
-	for _, k := range []string{envAPIKey, envRegion, envDomain, envInsecureHTTP} {
+	for _, k := range []string{envAPIKey, envRegion, envDomain, envInsecureHTTP, envRegistryUsername, envRegistryPassword} {
 		t.Setenv(k, "")
 	}
 }
@@ -35,13 +35,16 @@ func clearEnv(t *testing.T) {
 func TestLoad_FileOnly(t *testing.T) {
 	home := setupHome(t)
 	clearEnv(t)
-	writeConfig(t, home, &Config{APIKey: "key1", Region: "cn-sh", InsecureHTTP: true})
+	writeConfig(t, home, &Config{APIKey: "key1", Region: "cn-sh", InsecureHTTP: true,
+		RegistryUsername: "file-user", RegistryPassword: "file-pass"})
 
 	cfg, err := Load()
 	require.NoError(t, err)
 	assert.Equal(t, "key1", cfg.APIKey)
 	assert.Equal(t, "cn-sh", cfg.Region)
 	assert.True(t, cfg.InsecureHTTP)
+	assert.Equal(t, "file-user", cfg.RegistryUsername)
+	assert.Equal(t, "file-pass", cfg.RegistryPassword)
 }
 
 func TestLoad_EnvOverride(t *testing.T) {
@@ -51,6 +54,8 @@ func TestLoad_EnvOverride(t *testing.T) {
 	t.Setenv(envRegion, "env-region")
 	t.Setenv(envDomain, "env.example.com")
 	t.Setenv(envInsecureHTTP, "false")
+	t.Setenv(envRegistryUsername, "env-user")
+	t.Setenv(envRegistryPassword, "env-pass")
 
 	cfg, err := Load()
 	require.NoError(t, err)
@@ -58,6 +63,8 @@ func TestLoad_EnvOverride(t *testing.T) {
 	assert.Equal(t, "env-region", cfg.Region)
 	assert.Equal(t, "env.example.com", cfg.Domain)
 	assert.False(t, cfg.InsecureHTTP)
+	assert.Equal(t, "env-user", cfg.RegistryUsername)
+	assert.Equal(t, "env-pass", cfg.RegistryPassword)
 }
 
 func TestLoad_EnvInsecureHTTPTrue(t *testing.T) {
@@ -94,7 +101,8 @@ func TestLoad_NoFile(t *testing.T) {
 func TestSave(t *testing.T) {
 	home := setupHome(t)
 
-	in := &Config{APIKey: "save-key", Region: "cn-bj", InsecureHTTP: true}
+	in := &Config{APIKey: "save-key", Region: "cn-bj", InsecureHTTP: true,
+		RegistryUsername: "save-user", RegistryPassword: "save-pass"}
 	require.NoError(t, Save(in))
 
 	data, err := os.ReadFile(filepath.Join(home, configDir, configFile))
@@ -104,6 +112,8 @@ func TestSave(t *testing.T) {
 	assert.Equal(t, in.APIKey, out.APIKey)
 	assert.Equal(t, in.Region, out.Region)
 	assert.Equal(t, in.InsecureHTTP, out.InsecureHTTP)
+	assert.Equal(t, in.RegistryUsername, out.RegistryUsername)
+	assert.Equal(t, in.RegistryPassword, out.RegistryPassword)
 	assert.Contains(t, string(data), `"insecure_http": true`)
 	assert.NotContains(t, string(data), `"insecure":`)
 }
