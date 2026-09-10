@@ -18,18 +18,20 @@ const (
 )
 
 type buildFlags struct {
-	path       string
-	dockerfile string
-	startCmd   string
-	readyCmd   string
-	cpuCount   int
-	memoryMB   int
-	cpuSet     bool
-	memorySet  bool
-	noCache    bool
-	publish    bool
-	tags       []string
-	logLevel   string
+	path             string
+	dockerfile       string
+	startCmd         string
+	readyCmd         string
+	cpuCount         int
+	memoryMB         int
+	cpuSet           bool
+	memorySet        bool
+	noCache          bool
+	publish          bool
+	tags             []string
+	logLevel         string
+	registryUsername string
+	registryPassword string
 }
 
 func newBuildCmd() *cobra.Command {
@@ -68,6 +70,8 @@ func buildCommand(use string, aliases []string, short string) *cobra.Command {
 	cmd.Flags().BoolVar(&flags.publish, "publish", false, "Publish after build")
 	cmd.Flags().StringSliceVarP(&flags.tags, "tag", "t", nil, "Build tags")
 	cmd.Flags().StringVar(&flags.logLevel, "level", "info", "Minimum build log level (debug, info, warn, error)")
+	cmd.Flags().StringVar(&flags.registryUsername, "registry-username", "", "Username for pulling the base image from a private registry")
+	cmd.Flags().StringVar(&flags.registryPassword, "registry-password", "", "Password for pulling the base image from a private registry")
 	return cmd
 }
 
@@ -105,6 +109,9 @@ func runBuild(name string, flags *buildFlags) error {
 	if flags.startCmd == "" && flags.readyCmd != "" {
 		return fmt.Errorf("both --cmd and --ready-cmd must be provided together")
 	}
+	if (flags.registryUsername == "") != (flags.registryPassword == "") {
+		return fmt.Errorf("both --registry-username and --registry-password must be provided together")
+	}
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -136,6 +143,9 @@ func runBuild(name string, flags *buildFlags) error {
 	}
 	if flags.publish {
 		opts = append(opts, sdk.WithPublishTemplate())
+	}
+	if flags.registryUsername != "" {
+		opts = append(opts, sdk.WithBuildFromImageRegistry(flags.registryUsername, flags.registryPassword))
 	}
 	fmt.Println("\nBuilding sandbox template...")
 	fmt.Println()
