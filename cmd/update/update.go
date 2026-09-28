@@ -3,9 +3,12 @@ package update
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -141,7 +144,12 @@ func (o *updateOperation) Run(ctx cmd.OperationContext) error {
 	}
 
 	fmt.Printf("Installing %s to %s...\n", release.TagName, executable)
-	if err := selfupdate.Apply(binary, executable); err != nil {
+	err = selfupdate.Apply(binary, executable)
+	if errors.Is(err, fs.ErrPermission) && selfupdate.CanSudo() {
+		fmt.Printf("No permission to write to %s, retrying with sudo...\n", filepath.Dir(executable))
+		err = selfupdate.ApplyWithSudo(ctx, binary, executable)
+	}
+	if err != nil {
 		return err
 	}
 
