@@ -55,7 +55,7 @@ func (t *targets) resolve(ctx cmd.OperationContext) ([]string, *LocalConfig, err
 
 // choose lists the team's templates and asks which one to act on.
 func (t *targets) choose(ctx cmd.OperationContext) (string, error) {
-	templates, err := ctx.Client.Templates().ListV2(ctx, &api.GetV2TemplatesParams{}).NextItems(ctx)
+	templates, err := ctx.Client.Templates().ListV2(ctx, &api.TemplateListParamsV2{}).NextItems(ctx)
 	if err != nil {
 		return "", err
 	}
