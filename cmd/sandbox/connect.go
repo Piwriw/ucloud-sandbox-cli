@@ -12,6 +12,7 @@ import (
 	"github.com/ucloud/ucloud-sandbox-cli/cmd/flags"
 	"github.com/ucloud/ucloud-sandbox-sdk-go/pkg/api"
 	"github.com/ucloud/ucloud-sandbox-sdk-go/pkg/errdefs"
+	sdksandbox "github.com/ucloud/ucloud-sandbox-sdk-go/pkg/sandbox"
 	"github.com/ucloud/ucloud-sandbox-sdk-go/pkg/sandbox/commands"
 	"github.com/ucloud/ucloud-sandbox-sdk-go/pkg/sandbox/pty"
 	"golang.org/x/term"
@@ -96,7 +97,7 @@ func (o *connectOperation) Run(ctx cmd.OperationContext) error {
 	return nil
 }
 
-func connectTerminal(ctx cmd.OperationContext, sbx *api.Sandbox, user string, opts commands.Options) error {
+func connectTerminal(ctx cmd.OperationContext, sbx *sdksandbox.Sandbox, user string, opts commands.Options) error {
 	fd := int(os.Stdin.Fd())
 	if !term.IsTerminal(fd) {
 		return fmt.Errorf("connect needs a terminal on stdin")
@@ -107,16 +108,11 @@ func connectTerminal(ctx cmd.OperationContext, sbx *api.Sandbox, user string, op
 		cols, rows = defaultCols, defaultRows
 	}
 
-	envd, err := ctx.Client.Sandboxes().Envd(sbx, user)
-	if err != nil {
-		return fmt.Errorf("failed to connect to sandbox envd: %w", err)
-	}
-
 	ptySize := pty.Size{
 		Rows: rows,
 		Cols: cols,
 	}
-	terminal := envd.Pty()
+	terminal := sbx.Pty()
 	handle, err := terminal.Create(ctx, ptySize, opts)
 	if err != nil {
 		return fmt.Errorf("failed to create pty: %w", err)

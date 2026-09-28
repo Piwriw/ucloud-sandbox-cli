@@ -1,8 +1,6 @@
 package fs
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/ucloud/ucloud-sandbox-cli/cmd"
@@ -47,10 +45,9 @@ func (s *session) open(ctx cmd.OperationContext, sandboxID string) (*files.Files
 		return nil, err
 	}
 
-	envd, err := ctx.Client.Sandboxes().Envd(sbx, s.user)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to sandbox envd: %w", err)
+	if s.user != "" {
+		return sbx.Files().User(s.user), nil
 	}
 
-	return envd.Files(), nil
+	return sbx.Files(), nil
 }

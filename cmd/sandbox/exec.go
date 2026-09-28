@@ -57,11 +57,6 @@ func (o *execOperation) Run(ctx cmd.OperationContext) error {
 		return err
 	}
 
-	envd, err := ctx.Client.Sandboxes().Envd(sbx, o.user)
-	if err != nil {
-		return fmt.Errorf("failed to connect to sandbox envd: %w", err)
-	}
-
 	// The command's output is this process' output, as it arrives.
 	opts := o.commandsOptions
 	opts.OnStdout = func(s string) { fmt.Fprint(os.Stdout, s) }
@@ -69,7 +64,7 @@ func (o *execOperation) Run(ctx cmd.OperationContext) error {
 
 	// Run reports a non-zero exit as an error; the output it carries has
 	// already been streamed by the callbacks above.
-	_, err = envd.Commands().Run(ctx, command, opts)
+	_, err = sbx.Commands().Run(ctx, command, opts)
 
 	return err
 }
