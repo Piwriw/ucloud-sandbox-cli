@@ -64,7 +64,7 @@ func (o *execOperation) Run(ctx cmd.OperationContext) error {
 
 	// Run reports a non-zero exit as an error; the output it carries has
 	// already been streamed by the callbacks above.
-	_, err = sbx.Commands().Run(ctx, command, opts)
+	_, err = sbx.Commands().User(o.user).Run(ctx, command, opts)
 
 	return err
 }

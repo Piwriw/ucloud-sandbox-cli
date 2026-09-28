@@ -45,9 +45,5 @@ func (s *session) open(ctx cmd.OperationContext, sandboxID string) (*files.Files
 		return nil, err
 	}
 
-	if s.user != "" {
-		return sbx.Files().User(s.user), nil
-	}
-
-	return sbx.Files(), nil
+	return sbx.Files().User(s.user), nil
 }

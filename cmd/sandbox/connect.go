@@ -112,7 +112,7 @@ func connectTerminal(ctx cmd.OperationContext, sbx *sdksandbox.Sandbox, user str
 		Rows: rows,
 		Cols: cols,
 	}
-	terminal := sbx.Pty()
+	terminal := sbx.Pty().User(user)
 	handle, err := terminal.Create(ctx, ptySize, opts)
 	if err != nil {
 		return fmt.Errorf("failed to create pty: %w", err)
@@ -164,7 +164,7 @@ func connectTerminal(ctx cmd.OperationContext, sbx *sdksandbox.Sandbox, user str
 
 		// The stream dropped but the shell may well still be running in the
 		// sandbox, so attach to it again rather than end the session.
-		handle, err = reconnectTerminal(ctx, terminal, pid, err)
+		handle, err = reconnectTerminal(ctx, sbx, terminal, pid, err)
 		if err != nil {
 			return err
 		}
@@ -189,10 +189,17 @@ const (
 
 // reconnectTerminal attaches to the terminal pid again after its stream failed
 // with cause. It returns a nil handle, and no error, when the terminal turns
-// out to have exited meanwhile.
-func reconnectTerminal(ctx context.Context, terminal *pty.Pty, pid int, cause error) (*pty.Handle, error) {
+// out to have exited meanwhile. It gives up without retrying once the sandbox
+// itself no longer exists.
+func reconnectTerminal(ctx context.Context, sbx *sdksandbox.Sandbox, terminal *pty.Pty, pid int, cause error) (*pty.Handle, error) {
 	delay := reconnectBaseDelay
 	for attempt := 1; attempt <= maxReconnectAttempts; attempt++ {
+		// A sandbox that is gone fails every attempt the same way, and the
+		// stream error alone cannot tell that apart from a transient drop.
+		if isSandboxGone(ctx, sbx) {
+			return nil, fmt.Errorf("sandbox %s no longer exists, it may have timed out or been killed: %w", sbx.SandboxID, cause)
+		}
+
 		// The terminal is in raw mode, so a bare "\n" would not return the
 		// cursor to the start of the line.
 		fmt.Fprintf(os.Stderr, "\r\nTerminal connection lost (%v), reconnecting (%d/%d)...\r\n", cause, attempt, maxReconnectAttempts)
@@ -221,4 +228,12 @@ func reconnectTerminal(ctx context.Context, terminal *pty.Pty, pid int, cause er
 	}
 
 	return nil, fmt.Errorf("failed to reconnect to the terminal after %d attempts: %w", maxReconnectAttempts, cause)
+}
+
+// isSandboxGone reports whether the control plane no longer knows the sandbox.
+// Any other failure to look it up counts as still there, so a network outage
+// is retried rather than mistaken for a deleted sandbox.
+func isSandboxGone(ctx context.Context, sbx *sdksandbox.Sandbox) bool {
+	_, err := sbx.GetDetail(ctx)
+	return errdefs.IsNotFound(err)
 }
