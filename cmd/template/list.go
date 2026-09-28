@@ -12,6 +12,8 @@ import (
 )
 
 type listOperation struct {
+	params api.TemplateListParamsV2
+
 	list list.Options
 }
 
@@ -67,22 +69,12 @@ func (o *listOperation) Run(ctx cmd.OperationContext) error {
 		return err
 	}
 
-	// The endpoint is not paginated, so the whole listing arrives at once and
-	// is paged client-side.
-	templates, err := ctx.Client.Templates().ListV2(ctx)
+	paginator := ctx.Client.Templates().ListV2(ctx, &o.params)
+
+	page, err := list.FromPaginator(ctx, paginator, o.list.Page, o.list.Limit)
 	if err != nil {
 		return err
 	}
 
-	rows := make([]listedTemplate, len(templates))
-	for i, tpl := range templates {
-		rows[i] = toListedTemplate(tpl)
-	}
-
-	page := list.FromSlice(rows, o.list.Page, o.list.Limit)
-
-	return list.Render(os.Stdout, page, o.list, identity, "No templates found.")
+	return list.Render(os.Stdout, page, o.list, toListedTemplate, "No templates found.")
 }
-
-// identity is the row conversion for a page whose items are already rows.
-func identity(t listedTemplate) listedTemplate { return t }

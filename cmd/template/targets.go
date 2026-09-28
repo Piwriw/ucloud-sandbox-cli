@@ -7,6 +7,7 @@ import (
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/pflag"
 	"github.com/ucloud/ucloud-sandbox-cli/cmd"
+	"github.com/ucloud/ucloud-sandbox-sdk-go/pkg/api"
 )
 
 // targets is the flag set shared by the commands that act on templates named
@@ -54,7 +55,7 @@ func (t *targets) resolve(ctx cmd.OperationContext) ([]string, *LocalConfig, err
 
 // choose lists the team's templates and asks which one to act on.
 func (t *targets) choose(ctx cmd.OperationContext) (string, error) {
-	templates, err := ctx.Client.Templates().ListV2(ctx)
+	templates, err := ctx.Client.Templates().ListV2(ctx, &api.GetV2TemplatesParams{}).NextItems(ctx)
 	if err != nil {
 		return "", err
 	}
