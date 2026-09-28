@@ -10,7 +10,7 @@ import (
 	"golang.org/x/term"
 )
 
-func watchTerminalResize(ctx context.Context, fd int, handle *pty.Handle, cols, rows int) func() {
+func watchTerminalResize(ctx context.Context, fd int, resize func(context.Context, pty.Size) error, cols, rows int) func() {
 	done := make(chan struct{})
 	go func() {
 		ticker := time.NewTicker(500 * time.Millisecond)
@@ -27,7 +27,7 @@ func watchTerminalResize(ctx context.Context, fd int, handle *pty.Handle, cols, 
 				if err != nil || (newCols == cols && newRows == rows) {
 					continue
 				}
-				if err := handle.Resize(ctx, pty.Size{Cols: newCols, Rows: newRows}); err == nil {
+				if err := resize(ctx, pty.Size{Cols: newCols, Rows: newRows}); err == nil {
 					cols, rows = newCols, newRows
 				}
 			}

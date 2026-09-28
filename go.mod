@@ -12,7 +12,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.9
 	github.com/stretchr/testify v1.12.1
-	github.com/ucloud/ucloud-sandbox-sdk-go v0.1.1-0.20260924125206-321014f4cd75
+	github.com/ucloud/ucloud-sandbox-sdk-go v0.2.1
 	golang.org/x/mod v0.40.0
 	golang.org/x/term v0.44.0
 	google.golang.org/protobuf v1.36.12

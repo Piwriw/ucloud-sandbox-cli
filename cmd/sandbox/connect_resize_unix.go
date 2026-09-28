@@ -12,7 +12,7 @@ import (
 	"golang.org/x/term"
 )
 
-func watchTerminalResize(ctx context.Context, fd int, handle *pty.Handle, _, _ int) func() {
+func watchTerminalResize(ctx context.Context, fd int, resize func(context.Context, pty.Size) error, _, _ int) func() {
 	sigCh := make(chan os.Signal, 1)
 	done := make(chan struct{})
 	signal.Notify(sigCh, syscall.SIGWINCH)
@@ -26,7 +26,7 @@ func watchTerminalResize(ctx context.Context, fd int, handle *pty.Handle, _, _ i
 				return
 			case <-sigCh:
 				if cols, rows, err := term.GetSize(fd); err == nil {
-					_ = handle.Resize(ctx, pty.Size{Cols: cols, Rows: rows})
+					_ = resize(ctx, pty.Size{Cols: cols, Rows: rows})
 				}
 			}
 		}
