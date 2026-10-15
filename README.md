@@ -63,6 +63,7 @@ ucloud-sandbox-cli update -y
 - 如果 CLI 安装在`/usr/local/bin`等需要管理员权限的目录，请使用`sudo ucloud-sandbox-cli update`。
 - `v1.3.3`及以前的版本没有`update`命令，请重新执行上面的安装脚本来升级。
 - 该命令使用 GitHub 的匿名 API 查询版本，如果遇到限流报错，可以设置`GITHUB_TOKEN`环境变量后重试。
+- 每天第一次执行命令时，CLI 会自动检查是否有新版本，有的话在 stderr 第一行提示使用`update`命令更新；检查失败时输出一行警告。设置`UCLOUD_SANDBOX_NO_UPDATE_CHECK=1`可关闭该检查。
 
 ## 身份认证与配置
 

@@ -12,6 +12,7 @@ import (
 	"github.com/ucloud/ucloud-sandbox-cli/cmd/template"
 	"github.com/ucloud/ucloud-sandbox-cli/cmd/update"
 	"github.com/ucloud/ucloud-sandbox-cli/cmd/volume"
+	"github.com/ucloud/ucloud-sandbox-cli/internal/updatecheck"
 )
 
 var (
@@ -28,6 +29,10 @@ func newCommand() *cobra.Command {
 		SilenceUsage:  true,
 
 		Version: Version,
+
+		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+			checkForUpdate(cmd)
+		},
 	}
 
 	c.AddCommand(auth.Command())
@@ -49,6 +54,32 @@ func newCommand() *cobra.Command {
 	c.AddCommand(versionCmd)
 
 	return c
+}
+
+// noUpdateCheck lists the commands that skip the daily update check: the
+// ones about the CLI itself, and the hidden ones a shell runs for completion.
+var noUpdateCheck = map[string]bool{
+	"update":                        true,
+	"version":                       true,
+	"help":                          true,
+	"completion":                    true,
+	cobra.ShellCompRequestCmd:       true,
+	cobra.ShellCompNoDescRequestCmd: true,
+}
+
+// checkForUpdate tells the user, on the first command of the day, when a
+// newer release is out. The notice goes to stderr so output meant for other
+// programs on stdout stays as it is.
+func checkForUpdate(cmd *cobra.Command) {
+	if noUpdateCheck[cmd.Name()] {
+		return
+	}
+
+	checker, err := updatecheck.New(Version)
+	if err != nil {
+		return
+	}
+	checker.Run(cmd.Context(), cmd.ErrOrStderr(), cmd.Root().Name())
 }
 
 func main() {

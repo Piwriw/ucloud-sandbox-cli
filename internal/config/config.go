@@ -55,13 +55,23 @@ func (c *Config) RegistryAuth(domain string) (RegistryAuth, bool) {
 	return auth, ok
 }
 
-// Path returns the path to the config file.
-func Path() (string, error) {
+// Dir returns the directory holding the config file and the CLI's other
+// local state.
+func Dir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("get home dir: %w", err)
 	}
-	return filepath.Join(home, configDir, configFile), nil
+	return filepath.Join(home, configDir), nil
+}
+
+// Path returns the path to the config file.
+func Path() (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, configFile), nil
 }
 
 // LoadFile reads the config file on its own, without the environment overrides
