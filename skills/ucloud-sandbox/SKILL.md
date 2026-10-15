@@ -241,10 +241,10 @@ API Key 可从星图平台密钥管理获取：`https://astraflow.ucloud.cn/mode
 
 不要让 Agent 执行 `ucloud-sandbox-cli auth login`、`ucloud-sandbox-cli auth region` 或 `ucloud-sandbox-cli auth registry login`。这三个命令需要真实交互式终端，Agent/CI 中通常会失败。
 
-读取配置时优先使用 `ucloud-sandbox-cli auth config`，它输出 JSON 并自动把 `api_key` 和每个仓库的 `password` 换成 `****`，不需要再手工脱敏：
+读取配置时优先使用 `ucloud-sandbox-cli auth show`，它输出 JSON，`config` 是环境变量覆盖后的生效配置（`api_key` 只保留首尾各 3 个字符，每个仓库的 `password` 换成 `****`，不需要再手工脱敏），`whoami` 是当前 API Key 所属的公司、项目和 Key 信息；查询失败时 `whoami` 为 `null`，原因在 `whoami_error`（例如 API Key 无效）；完全没有配置 API Key 时命令直接报错 `not logged in`，不输出 JSON：
 
 ```bash
-ucloud-sandbox-cli auth config
+ucloud-sandbox-cli auth show
 ```
 
 如果用户没有配置 API Key，不要让 Agent 询问或读取用户的 API Key 后写入配置文件。提示用户在真实终端中手动登录：
@@ -319,7 +319,7 @@ ucloud-sandbox-cli auth logout
 - 需要确认的命令必须带 `-y`，否则会在非 TTY 环境下一直等待输入：`sandbox kill --all`、`template delete`、`template publish`、`template tag remove`、`update`。
 - 执行破坏性命令前先确认用户意图：`sandbox kill`、`sandbox kill --all`、`volume delete`、`secret delete`、`sandbox fs rm`、`snapshot delete`、`template delete`、`template publish --unpublish`、`auth logout`、`auth registry logout`。
 - `sandbox kill --all` 配合 `--limit` 限制单次影响面，并用 `--state`、`--template`、`--metadata` 收窄范围。
-- 不要在回复、日志或命令输出中泄露 API Key 和镜像仓库密码；查看配置用 `ucloud-sandbox-cli auth config`（自动脱敏），不要 `cat ~/.ucloud-sandbox-cli/config.json`。
+- 不要在回复、日志或命令输出中泄露 API Key 和镜像仓库密码；查看配置用 `ucloud-sandbox-cli auth show`（自动脱敏），不要 `cat ~/.ucloud-sandbox-cli/config.json`。
 - Secret 的值是只写的，`secret get` 只返回元数据。创建或更新 Secret 时不要把值写在命令行里（会进入 shell 历史和进程列表），用 `--value-stdin` 从标准输入传入。
 - 用户要打开交互式终端时，建议让用户在真实终端中运行 `sandbox connect`。
 - `sandbox logs -f` 和 `sandbox metrics -w` 会持续阻塞，Agent/CI 中不要使用。
@@ -741,8 +741,8 @@ ucloud-sandbox-cli sandbox create <template-id-or-name> --detach
 | `sandbox not found` | 运行 `sandbox list --format json` 确认沙箱仍在运行 |
 | 挂载 Volume 失败或 Volume 不存在 | 运行 `volume list --format json` 确认 Volume 名称；`--mount` 使用名称，不使用 Volume ID |
 | metrics 时间参数不识别 | `--start`/`--end` 只接收 Unix 时间戳（秒），例如 `--start "$(date -d '1 hour ago' +%s)"` |
-| `fs`、`login`、`region`、`config`、`clone` 提示未知命令 | 这些命令已经挪位：`sandbox fs`、`auth login`、`auth region`、`auth config`；`clone` 由 `sandbox fork` 取代 |
-| 拉取私有 base image 失败 | 让用户在真实终端执行 `auth registry login <domain>`；用 `auth config` 确认 `registries` 里有该域名 |
+| `fs`、`login`、`region`、`config`、`clone` 提示未知命令 | 这些命令已经挪位：`sandbox fs`、`auth login`、`auth region`、`auth show`（原 `auth config`，编辑配置改为 `auth edit`）；`clone` 由 `sandbox fork` 取代 |
+| 拉取私有 base image 失败 | 让用户在真实终端执行 `auth registry login <domain>`；用 `auth show` 确认 `config.registries` 里有该域名 |
 | 命令卡住不返回 | 多半在等确认或在持续输出：带 `-y`，并避免 `sandbox logs -f`、`sandbox metrics -w` |
 
 更多 CLI 用法参考：`https://astraflow.ucloud.cn/docs/agent-sandbox/product/cli`。

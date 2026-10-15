@@ -99,10 +99,10 @@ if ($LASTEXITCODE -ne 0) { throw "ucloud-sandbox-cli verification failed." }
 
 配置文件位于 `~/.ucloud-sandbox-cli/config.json`，使用用户配置目录的 ACL。不要输出真实 `api_key`，也不要输出 `registries` 里任何仓库的 `password`。
 
-查看配置优先用 CLI，它输出 JSON 并已经把 `api_key` 和每个仓库的 `password` 替换成 `****`：
+查看配置优先用 CLI，它输出 JSON 并已经把 `api_key` 遮成只剩首尾各 3 个字符、每个仓库的 `password` 替换成 `****`：
 
 ```powershell
-ucloud-sandbox-cli auth config
+ucloud-sandbox-cli auth show
 ```
 
 临时使用环境变量时，让用户在自己的终端设置：
@@ -162,7 +162,7 @@ if ($Region) { "region=$($Region.Value)" } else { "region=" }
 if ($Domain) { "domain=$($Domain.Value)" } else { "domain=" }
 ```
 
-必须自己读文件展示摘要时先脱敏，`api_key` 和每个仓库的 `password` 都要遮住（优先改用 `ucloud-sandbox-cli auth config`，它已经做了这件事）：
+必须自己读文件展示摘要时先脱敏，`api_key` 和每个仓库的 `password` 都要遮住（优先改用 `ucloud-sandbox-cli auth show`，它已经做了这件事）：
 
 ```powershell
 $ConfigFile = Join-Path $HOME ".ucloud-sandbox-cli\config.json"

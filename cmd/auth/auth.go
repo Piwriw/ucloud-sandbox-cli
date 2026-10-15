@@ -12,10 +12,11 @@ func Command() *cobra.Command {
 		Use:   "auth",
 		Short: "Manage credentials and configuration",
 	}
-	c.AddCommand(cmd.BuildLocal(&configOperation{}))
 	c.AddCommand(cmd.BuildLocal(&loginOperation{}))
 	c.AddCommand(cmd.BuildLocal(&logoutOperation{}))
 	c.AddCommand(cmd.BuildLocal(&regionOperation{}))
+	c.AddCommand(cmd.BuildLocal(&showOperation{}))
+	c.AddCommand(cmd.BuildLocal(&editOperation{}))
 	c.AddCommand(registry.Command())
 	return c
 }

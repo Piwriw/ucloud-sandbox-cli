@@ -18,7 +18,7 @@ const (
 	configDir      = ".ucloud-sandbox-cli"
 	configFile     = "config.json"
 
-	envAPIKey       = "UCLOUD_SANDBOX_API_KEY"
+	EnvAPIKey       = "UCLOUD_SANDBOX_API_KEY"
 	envRegion       = "UCLOUD_SANDBOX_REGION"
 	envDomain       = "UCLOUD_SANDBOX_DOMAIN"
 	envInsecureHTTP = "UCLOUD_SANDBOX_INSECURE_HTTP"
@@ -97,7 +97,7 @@ func Load() (*Config, error) {
 	}
 
 	// Environment variables take precedence over the config file.
-	if v := os.Getenv(envAPIKey); v != "" {
+	if v := os.Getenv(EnvAPIKey); v != "" {
 		cfg.APIKey = v
 	}
 	if v := os.Getenv(envRegion); v != "" {

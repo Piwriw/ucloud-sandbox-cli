@@ -27,7 +27,7 @@ func writeConfig(t *testing.T, home string, cfg *Config) {
 
 func clearEnv(t *testing.T) {
 	t.Helper()
-	for _, k := range []string{envAPIKey, envRegion, envDomain, envInsecureHTTP, envRegistries} {
+	for _, k := range []string{EnvAPIKey, envRegion, envDomain, envInsecureHTTP, envRegistries} {
 		t.Setenv(k, "")
 	}
 }
@@ -97,7 +97,7 @@ func TestLoad_InvalidEnvRegistries(t *testing.T) {
 func TestLoad_EnvOverride(t *testing.T) {
 	home := setupHome(t)
 	writeConfig(t, home, &Config{APIKey: "file-key", Region: "file-region", InsecureHTTP: true})
-	t.Setenv(envAPIKey, "env-key")
+	t.Setenv(EnvAPIKey, "env-key")
 	t.Setenv(envRegion, "env-region")
 	t.Setenv(envDomain, "env.example.com")
 	t.Setenv(envInsecureHTTP, "false")
@@ -144,7 +144,7 @@ func TestLoad_NoFile(t *testing.T) {
 func TestLoadFile_IgnoresTheEnvironment(t *testing.T) {
 	home := setupHome(t)
 	writeConfig(t, home, &Config{APIKey: "file-key", Region: "file-region"})
-	t.Setenv(envAPIKey, "env-key")
+	t.Setenv(EnvAPIKey, "env-key")
 	t.Setenv(envRegion, "env-region")
 
 	// A read-modify-write must not persist what only the environment said.

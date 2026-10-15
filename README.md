@@ -91,17 +91,17 @@ export UCLOUD_SANDBOX_INSECURE_HTTP=true
 }
 ```
 
-查看当前生效的配置（API Key 和镜像仓库密码会自动脱敏）：
+查看当前生效的配置（包含环境变量覆盖后的值，API Key 只显示首尾各 3 个字符，镜像仓库密码会自动脱敏），以及当前 API Key 所属的公司、项目和 Key 信息：
 
 ```bash
-ucloud-sandbox-cli auth config
+ucloud-sandbox-cli auth show
 ```
 
-直接用编辑器打开配置文件，编辑器取自 `$EDITOR`，未设置时用 `vim`，也可以在 `-e` 后面指定：
+直接用编辑器打开配置文件，编辑器取自 `$EDITOR`，未设置时用 `vim`，也可以作为参数指定：
 
 ```bash
-ucloud-sandbox-cli auth config -e
-ucloud-sandbox-cli auth config -e nano
+ucloud-sandbox-cli auth edit
+ucloud-sandbox-cli auth edit nano
 ```
 
 API key可以从星图平台的[密钥管理](https://astraflow.ucloud.cn/modelverse/api-keys)获取。
