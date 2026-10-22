@@ -57,14 +57,14 @@ func TestWriteMaskedConfig(t *testing.T) {
 	var shown map[string]any
 	require.NoError(t, json.Unmarshal([]byte(out.String()), &shown))
 
-	assert.Equal(t, maskedValue, shown["api_key"])
+	assert.Equal(t, "secr****-key", shown["api_key"])
 
 	// Everything that is not a secret is shown as it is.
 	assert.Equal(t, "cn-sh", shown["region"])
 	assert.Equal(t, "cn-sh.sandbox.ucloudai.com", shown["domain"])
 	assert.Equal(t, true, shown["insecure_http"])
 
-	// Every registry's password is masked, not just the first one.
+	// Every registry's password is hidden whole, not just the first one.
 	registries := shown["registries"].(map[string]any)
 	require.Len(t, registries, 2)
 	for domain, entry := range registries {
@@ -76,6 +76,32 @@ func TestWriteMaskedConfig(t *testing.T) {
 	assert.NotContains(t, out.String(), "secret-key")
 	assert.NotContains(t, out.String(), "secret-password")
 	assert.NotContains(t, out.String(), "other-password")
+}
+
+func TestMaskPassword(t *testing.T) {
+	assert.Equal(t, "", maskPassword(""))
+	assert.Equal(t, maskedValue, maskPassword("p"))
+	assert.Equal(t, maskedValue, maskPassword("a-long-password"))
+}
+
+func TestMaskSecret(t *testing.T) {
+	tests := []struct {
+		name   string
+		secret string
+		want   string
+	}{
+		{"unset stays unset", "", ""},
+		{"too short to keep any of it", "short", maskedValue},
+		{"exactly twice the kept length is hidden whole", "12345678", maskedValue},
+		{"long enough keeps both edges", "123456789", "1234****6789"},
+		{"multi-byte characters are not cut", "密钥密钥密钥密钥密", "密钥密钥****钥密钥密"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, maskSecret(tt.secret))
+		})
+	}
 }
 
 func TestWriteMaskedConfigShowsEveryField(t *testing.T) {

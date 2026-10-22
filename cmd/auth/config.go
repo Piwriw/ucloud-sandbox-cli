@@ -16,9 +16,15 @@ import (
 // fallbackEditor opens the config file when $EDITOR says nothing.
 const fallbackEditor = "vim"
 
-// maskedValue stands in for a secret, so the config can be shown without
-// putting the secret itself on the screen.
+// maskedValue stands in for the hidden part of a secret, so the config can be
+// shown without putting the secret itself on the screen.
 const maskedValue = "****"
+
+// The edges of a secret kept visible, enough to tell two of them apart.
+const (
+	maskKeepPrefix = 4
+	maskKeepSuffix = 4
+)
 
 type configOperation struct {
 	edit bool
@@ -124,7 +130,7 @@ func writeMaskedConfig(w io.Writer, cfg *config.Config) error {
 	if cfg.Registries != nil {
 		registries := make(map[string]config.RegistryAuth, len(cfg.Registries))
 		for domain, auth := range cfg.Registries {
-			auth.Password = maskSecret(auth.Password)
+			auth.Password = maskPassword(auth.Password)
 			registries[domain] = auth
 		}
 		masked.Registries = registries
@@ -139,12 +145,30 @@ func writeMaskedConfig(w io.Writer, cfg *config.Config) error {
 	return nil
 }
 
-// maskSecret masks a sensitive config value, leaving an unset one unset so the
-// output still shows what is missing.
+// maskPassword hides a registry password whole: unlike an API key, revealing
+// its edges would give away too much of a value that is often short.
+func maskPassword(password string) string {
+	if password == "" {
+		return ""
+	}
+
+	return maskedValue
+}
+
+// maskSecret masks an API key, leaving an unset one unset so the output still
+// shows what is missing. One long enough keeps its first and last few
+// characters so keys can be told apart; a short one would give most of itself
+// away that way, so it is hidden whole.
 func maskSecret(secret string) string {
 	if secret == "" {
 		return ""
 	}
 
-	return maskedValue
+	// Counting runes keeps a multi-byte character from being cut in half.
+	runes := []rune(secret)
+	if len(runes) <= maskKeepPrefix+maskKeepSuffix {
+		return maskedValue
+	}
+
+	return string(runes[:maskKeepPrefix]) + maskedValue + string(runes[len(runes)-maskKeepSuffix:])
 }
